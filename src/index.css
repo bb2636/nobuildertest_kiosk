@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 피그마 기반 테마 변수 (공통) */
+:root {
+  /* 키오스크 - 노란 강조 */
+  --kiosk-primary: #ffb800;
+  --kiosk-primary-hover: #e5a600;
+  --kiosk-bg: #ffffff;
+  --kiosk-surface: #fff9e9;
+  --kiosk-text: #131313;
+  --kiosk-text-secondary: #717171;
+  --kiosk-border: #e1e6ef;
+  --kiosk-error: #fc5555;
+
+  /* 백오피스 - 녹색 강조 */
+  --admin-primary: #16a34a;
+  --admin-primary-hover: #15803d;
+  --admin-primary-light: #dcfce7;
+  --admin-bg: #ffffff;
+  --admin-surface: #f9f9f9;
+  --admin-text: #505050;
+  --admin-text-secondary: #999999;
+  --admin-border: #e1e6ef;
+  --admin-error: #dc2626;
+
+  /* 공통 그레이 (피그마 Gray1, Gray4, Cool gray) */
+  --gray-1: #505050;
+  --gray-4: #999999;
+  --cool-gray-3: #e1e6ef;
+  --cool-gray-5: #f9f9f9;
+}
+
+body {
+  font-family: 'Pretendard', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 키오스크 뷰포트: 모바일 최대 너비 중앙 정렬 */
+.kiosk-view {
+  max-width: 430px;
+  margin-left: auto;
+  margin-right: auto;
+  min-height: 100dvh;
+}
+
+/* 백오피스: 데스크톱 */
+.admin-view {
+  max-width: 1280px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
