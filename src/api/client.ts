@@ -50,6 +50,15 @@ export const api = {
   },
 
   orders: {
+    /** 주문 생성 (totalPrice + 상품/수량/옵션). 트랜잭션 처리, 성공 시 orderNumber 반환 */
+    createOrder: (body: {
+      totalPrice: number;
+      items: { productId: string; quantity: number; optionIds: string[] }[];
+    }) =>
+      request<{ orderNumber: number; orderNo: string; orderId: string }>('/orders', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
     create: (body: {
       items: { itemId: string; quantity: number; unitPrice: number; optionsJson?: string }[];
     }) => request<Order>('/orders', { method: 'POST', body: JSON.stringify(body) }),

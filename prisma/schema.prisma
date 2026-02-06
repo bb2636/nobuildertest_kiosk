@@ -44,6 +44,7 @@ model Product {
 
   productOptions ProductOption[]
   orderItems     OrderItem[]
+  cartItems      CartItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -91,6 +92,57 @@ model ProductOption {
   @@index([optionId])
 }
 
+// ========== 사용자 ==========
+
+model User {
+  id        String   @id @default(cuid())
+  name      String   // 성함
+  username  String   @unique // 아이디
+  email     String   // 메일 주소
+  password  String   // 비밀번호 (hashed)
+  point     Int      @default(0) // 포인트
+  mileage   Int      @default(0) // 마일리지
+
+  // 앱 내 설정
+  notificationEnabled Boolean @default(true)  // 알림 여부
+  marketingConsent    Boolean @default(false) // 마케팅 수신 동의
+
+  orders    Order[]
+  cart      Cart?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([username])
+  @@index([email])
+}
+
+// 장바구니 (사용자당 1개)
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model CartItem {
+  id         String   @id @default(cuid())
+  cartId     String
+  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity   Int      @default(1)
+  optionIds  String?   // 선택 옵션 ID 배열 JSON, 예: ["opt1","opt2"]
+
+  createdAt  DateTime @default(now())
+
+  @@index([cartId])
+  @@index([productId])
+}
+
 // ========== 주문 & 주문항목 (선택 옵션 역추적 가능) ==========
 
 enum OrderType {
@@ -124,6 +176,8 @@ model Order {
   id            String        @id @default(cuid())
   orderNo       String        @unique // 주문번호 (표시용, 예: 20250205-001)
   orderNumber   Int?          // 순번 (당일 또는 전역)
+  userId        String?       // 주문한 사용자 (비회원 주문은 null)
+  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   orderType     OrderType     @default(DINE_IN)
   paymentMethod PaymentMethod?
   paymentStatus PaymentStatus @default(PENDING)
@@ -135,6 +189,7 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([userId])
   @@index([status])
   @@index([createdAt])
   @@index([updatedAt])

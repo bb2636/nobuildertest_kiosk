@@ -7,9 +7,12 @@
 import express from 'express';
 import cors from 'cors';
 import { prisma } from './db';
+import { authRouter } from './routes/auth';
 import { categoriesRouter } from './routes/categories';
+import { menuBoardRouter } from './routes/menuBoard';
 import { menuRouter } from './routes/menu';
 import { ordersRouter } from './routes/orders';
+import { userRouter } from './routes/user';
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -27,7 +30,10 @@ app.get('/api/health', async (_req, res) => {
   }
 });
 
+app.use('/api/auth', authRouter);
+app.use('/api/user', userRouter);
 app.use('/api/categories', categoriesRouter);
+app.use('/api/menu-board', menuBoardRouter);
 app.use('/api/menu', menuRouter);
 app.use('/api/orders', ordersRouter);
 

@@ -1,47 +1,64 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
 import { OrderStatus } from '@prisma/client';
+import { createOrder } from '../services/orderService.js';
 
 export const ordersRouter = Router();
 
-/** 주문번호 생성 (간단 예: 날짜기반 + 시퀀스) */
-async function nextOrderNo(): Promise<string> {
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const count = await prisma.order.count({
-    where: { createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
-  });
-  return `${today}-${String(count + 1).padStart(3, '0')}`;
-}
-
-/** POST /api/orders - 주문 생성 (키오스크) */
+/** POST /api/orders - 주문 생성 (키오스크)
+ * Body: { totalPrice: number, items: [{ productId, quantity, optionIds }] }
+ * 트랜잭션으로 Order + OrderItem + OrderItemOption 생성, 실패 시 롤백.
+ * 성공 시 201 + { orderNumber, orderNo, orderId }
+ */
 ordersRouter.post('/', async (req, res) => {
   try {
-    const { items } = req.body as { items: { itemId: string; quantity: number; unitPrice: number; optionsJson?: string }[] };
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'items array required' });
-    }
-    const totalPrice = items.reduce((sum, i) => sum + Number(i.unitPrice) * Number(i.quantity), 0);
-    const orderNo = await nextOrderNo();
+    const body = req.body as {
+      totalPrice?: number;
+      items?: { productId: string; quantity: number; optionIds?: string[] }[];
+    };
 
-    const order = await prisma.order.create({
-      data: {
-        orderNo,
-        status: OrderStatus.PENDING,
-        totalPrice,
-        items: {
-          create: items.map((i) => ({
-            itemId: i.itemId,
-            quantity: Number(i.quantity) || 1,
-            unitPrice: Number(i.unitPrice),
-            optionsJson: i.optionsJson ?? null,
-          })),
-        },
-      },
-      include: { items: true },
+    if (body == null || typeof body !== 'object') {
+      return res.status(400).json({ error: 'body required' });
+    }
+
+    const result = await createOrder({
+      totalPrice: Number(body.totalPrice),
+      items: Array.isArray(body.items) ? body.items : [],
     });
-    res.status(201).json(order);
+
+    res.status(201).json({
+      orderNumber: result.orderNumber,
+      orderNo: result.orderNo,
+      orderId: result.orderId,
+    });
   } catch (e) {
-    res.status(500).json({ error: String(e) });
+    const err = e instanceof Error ? e : new Error(String(e));
+    const msg = err.message;
+
+    if (
+      msg === 'INVALID_TOTAL_PRICE' ||
+      msg === 'ITEMS_REQUIRED' ||
+      msg === 'ITEMS_TOO_MANY' ||
+      msg.startsWith('INVALID_ITEM_AT_INDEX') ||
+      msg.startsWith('INVALID_PRODUCT_ID_AT_INDEX') ||
+      msg.startsWith('INVALID_QUANTITY_AT_INDEX') ||
+      msg.startsWith('INVALID_OPTION_IDS_AT_INDEX') ||
+      msg.startsWith('OPTION_IDS_TOO_MANY_AT_INDEX') ||
+      msg.startsWith('INVALID_OPTION_ID_AT_INDEX')
+    ) {
+      return res.status(400).json({ error: msg });
+    }
+
+    if (
+      msg === 'ORDER_ITEMS_EMPTY' ||
+      msg.startsWith('ORDER_PRODUCT_NOT_FOUND') ||
+      msg === 'ORDER_INVALID_QUANTITY' ||
+      msg === 'ORDER_TOTAL_MISMATCH'
+    ) {
+      return res.status(400).json({ error: msg });
+    }
+
+    res.status(500).json({ error: 'order_create_failed' });
   }
 });
 
@@ -54,7 +71,7 @@ ordersRouter.get('/', async (req, res) => {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
-        items: { include: { item: { select: { name: true } } } },
+        items: { include: { product: { select: { name: true } } } },
       },
     });
     res.json(list);
@@ -73,7 +90,7 @@ ordersRouter.patch('/:id/status', async (req, res) => {
     const updated = await prisma.order.update({
       where: { id: req.params.id },
       data: { status },
-      include: { items: { include: { item: { select: { name: true } } } } },
+      include: { items: { include: { product: { select: { name: true } } } } },
     });
     res.json(updated);
   } catch (e) {
