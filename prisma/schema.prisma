@@ -35,9 +35,12 @@ model Product {
   description String?  // 상품 설명
   basePrice   Int       // 기본 가격 (원)
   imageUrl    String?   // 대표 이미지 URL
-  calories    String?   // 영양정보 (예: "5kcal" 또는 JSON)
+  ingredients String?   // 원재료 (젤라또·디저트 등)
+  calories    String?   // 영양정보 JSON: { kcal, carb, sugar, protein, fat, saturatedFat, sodium }
   isAvailable Boolean  @default(true) // 품절 여부 (백오피스에서 관리)
-  sortOrder   Int       @default(0)
+  sortOrder       Int       @default(0)
+  isBest          Boolean  @default(false)
+  defaultShotCount Int?    // 커피 등: 기본 샷 수 (표시 시 2, 2+1, 2+n)
 
   productOptions ProductOption[]
   orderItems     OrderItem[]
