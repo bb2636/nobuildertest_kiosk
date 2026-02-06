@@ -85,8 +85,15 @@ export type MenuItem = {
 export type Order = {
   id: string;
   orderNo: string;
+  orderNumber: number | null;
   status: string;
-  totalPrice: number;
+  totalAmount: number;
   createdAt: string;
-  items: { id: string; quantity: number; unitPrice: number; optionsJson: string | null; item: { name: string } }[];
+  updatedAt: string;
+  items: {
+    id: string;
+    quantity: number;
+    lineTotalAmount: number;
+    product: { name: string };
+  }[];
 };

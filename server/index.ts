@@ -7,6 +7,7 @@
 import express from 'express';
 import cors from 'cors';
 import { prisma } from './db';
+import { adminRouter } from './routes/admin';
 import { authRouter } from './routes/auth';
 import { categoriesRouter } from './routes/categories';
 import { menuBoardRouter } from './routes/menuBoard';
@@ -30,6 +31,7 @@ app.get('/api/health', async (_req, res) => {
   }
 });
 
+app.use('/api/admin', adminRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/user', userRouter);
 app.use('/api/categories', categoriesRouter);

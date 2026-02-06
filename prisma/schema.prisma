@@ -94,12 +94,18 @@ model ProductOption {
 
 // ========== 사용자 ==========
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
 model User {
   id        String   @id @default(cuid())
   name      String   // 성함
   username  String   @unique // 아이디
   email     String   // 메일 주소
   password  String   // 비밀번호 (hashed)
+  role      UserRole @default(USER) // USER | ADMIN (관리자 백오피스)
   point     Int      @default(0) // 포인트
   mileage   Int      @default(0) // 마일리지
 
@@ -115,6 +121,15 @@ model User {
 
   @@index([username])
   @@index([email])
+  @@index([role])
+}
+
+// 약관/개인정보처리방침 (관리자에서 텍스트 관리)
+model SiteContent {
+  id        String   @id @default(cuid())
+  key       String   @unique // "terms" | "privacy"
+  content   String   @db.Text // 본문 텍스트
+  updatedAt DateTime @updatedAt
 }
 
 // 장바구니 (사용자당 1개)

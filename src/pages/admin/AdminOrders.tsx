@@ -4,12 +4,11 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 
 const STATUS_LABEL: Record<string, string> = {
-  PENDING: '대기',
-  CONFIRMED: '접수',
-  PREPARING: '제조 중',
-  READY: '준비 완료',
+  WAITING: '접수대기',
+  PREPARING: '제조중',
+  PICKUP_READY: '픽업대기',
   COMPLETED: '완료',
-  CANCELLED: '취소',
+  CANCELED: '취소',
 };
 
 export function AdminOrders() {
@@ -41,23 +40,14 @@ export function AdminOrders() {
             <ul className="text-sm text-admin-textSecondary mb-3">
               {order.items.map((oi) => (
                 <li key={oi.id}>
-                  {oi.item.name} x{oi.quantity} ({(oi.unitPrice * oi.quantity).toLocaleString()}원)
+                  {oi.product.name} x{oi.quantity} ({oi.lineTotalAmount.toLocaleString()}원)
                 </li>
               ))}
             </ul>
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="font-medium">{order.totalPrice.toLocaleString()}원</span>
+              <span className="font-medium">{order.totalAmount.toLocaleString()}원</span>
               <div className="flex gap-2">
-                {order.status === 'PENDING' && (
-                  <Button
-                    theme="admin"
-                    variant="primary"
-                    onClick={() => updateStatus(order.id, 'CONFIRMED')}
-                  >
-                    접수
-                  </Button>
-                )}
-                {order.status === 'CONFIRMED' && (
+                {order.status === 'WAITING' && (
                   <Button
                     theme="admin"
                     variant="primary"
@@ -70,18 +60,27 @@ export function AdminOrders() {
                   <Button
                     theme="admin"
                     variant="primary"
-                    onClick={() => updateStatus(order.id, 'READY')}
+                    onClick={() => updateStatus(order.id, 'PICKUP_READY')}
                   >
                     준비 완료
                   </Button>
                 )}
-                {order.status === 'READY' && (
+                {order.status === 'PICKUP_READY' && (
                   <Button
                     theme="admin"
                     variant="primary"
                     onClick={() => updateStatus(order.id, 'COMPLETED')}
                   >
                     완료
+                  </Button>
+                )}
+                {['WAITING', 'PREPARING', 'PICKUP_READY'].includes(order.status) && (
+                  <Button
+                    theme="admin"
+                    variant="secondary"
+                    onClick={() => updateStatus(order.id, 'CANCELED')}
+                  >
+                    취소
                   </Button>
                 )}
                 <span className="text-sm text-admin-textSecondary">

@@ -1,6 +1,9 @@
 import { PrismaClient, type Prisma } from "@prisma/client";
+import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
+const ADMIN_DEFAULT_PASSWORD = "admin123";
+const SALT_ROUNDS = 10;
 
 /** 영양정보 7종 [열량, 탄수화물, 당류, 단백질, 지방, 포화지방, 나트륨] */
 type NutTuple = [number, number, number, number, number, number, number];
@@ -15,6 +18,8 @@ async function main() {
   await prisma.orderItemOption.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
+  await (prisma as any).cartItem.deleteMany();
+  await (prisma as any).cart.deleteMany();
   await prisma.option.deleteMany();
   await prisma.optionGroup.deleteMany();
   await prisma.product.deleteMany();
@@ -266,7 +271,33 @@ async function main() {
     });
   }
 
-  console.log("Seed 완료: 이미지 매칭 및 모든 데이터가 정상 삽입되었습니다.");
+  // 기본 관리자 계정 1개 (회원가입 불가, 시드로만 생성)
+  const adminHash = await bcrypt.hash(ADMIN_DEFAULT_PASSWORD, SALT_ROUNDS);
+  await (prisma as any).user.upsert({
+    where: { username: "admin" },
+    create: {
+      name: "관리자",
+      username: "admin",
+      email: "admin@localhost",
+      password: adminHash,
+      role: "ADMIN",
+    },
+    update: {},
+  });
+
+  // 약관/개인정보처리방침 초기 문서 (없으면 빈 문자열로 생성)
+  await (prisma as any).siteContent.upsert({
+    where: { key: "terms" },
+    create: { key: "terms", content: "" },
+    update: {},
+  });
+  await (prisma as any).siteContent.upsert({
+    where: { key: "privacy" },
+    create: { key: "privacy", content: "" },
+    update: {},
+  });
+
+  console.log("Seed 완료: 이미지 매칭 및 모든 데이터가 정상 삽입되었습니다. (관리자: admin / " + ADMIN_DEFAULT_PASSWORD + ")");
 }
 
 main()
