@@ -44,6 +44,7 @@ npm run dev
 
 - 키오스크: http://localhost:5173/
 - 백오피스: http://localhost:5173/admin
+- **API 문서 (Swagger)**: http://localhost:3001/api-docs — 서버 실행 후 브라우저에서 API 테스트 가능
 
 프론트에서 `/api` 요청은 Vite 프록시로 `http://localhost:3001`로 전달됩니다.
 

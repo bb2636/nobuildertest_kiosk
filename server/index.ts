@@ -2,10 +2,13 @@
  * 커피 키오스크 API 서버
  * - Prisma(Neon DB) 연결: server/db.ts
  * - 프론트는 Vite dev 시 proxy로 /api 호출
+ * - Swagger UI: GET /api-docs
  */
 
 import express from 'express';
 import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
+import { createRequire } from 'module';
 import { prisma } from './db';
 import { adminRouter } from './routes/admin';
 import { authRouter } from './routes/auth';
@@ -15,11 +18,17 @@ import { menuRouter } from './routes/menu';
 import { ordersRouter } from './routes/orders';
 import { userRouter } from './routes/user';
 
+const require = createRequire(import.meta.url);
+const swaggerDocument = require('./openapi.json');
+
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 
 app.use(cors({ origin: true }));
 app.use(express.json());
+
+// Swagger UI (API 테스트용)
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, { customSiteTitle: '키오스크 API' }));
 
 // 헬스체크 (Neon 연결 확인용)
 app.get('/api/health', async (_req, res) => {
@@ -40,5 +49,5 @@ app.use('/api/menu', menuRouter);
 app.use('/api/orders', ordersRouter);
 
 app.listen(PORT, () => {
-  console.log(`[server] http://localhost:${PORT} (API: /api/...)`);
+  console.log(`[server] http://localhost:${PORT} (API: /api/..., Swagger: http://localhost:${PORT}/api-docs)`);
 });
