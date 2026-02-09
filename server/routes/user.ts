@@ -46,27 +46,39 @@ userRouter.get('/me', async (req: RequestWithAuth, res) => {
   }
 });
 
-/** 주문 상태 쿼리 → Prisma status 필터
- * ALL: 전체, CANCELED: 취소, WAITING: 주문 확인 중, COMPLETED: 주문 완료
- */
+/** 주문 상태 쿼리 → Prisma status 필터 */
 const statusMap: Record<string, OrderStatus | undefined> = {
   ALL: undefined,
   CANCELED: OrderStatus.CANCELED,
   WAITING: OrderStatus.WAITING,
+  PREPARING: OrderStatus.PREPARING,
+  PICKUP_READY: OrderStatus.PICKUP_READY,
   COMPLETED: OrderStatus.COMPLETED,
-  // PENDING = 주문 확인 중 → WAITING
   PENDING: OrderStatus.WAITING,
 };
 
-/** GET /api/user/orders?status=ALL|CANCELED|WAITING|COMPLETED|PENDING - 주문 내역 (상품명, 총 결제 금액 포함) */
+/** GET /api/user/orders?status=...&from=YYYY-MM-DD&to=YYYY-MM-DD - 주문 내역 (상품명, 총 결제 금액, 상태·기간 필터) */
 userRouter.get('/orders', async (req: RequestWithAuth, res) => {
   try {
     const userId = req.userId!;
     const statusParam = (req.query.status as string)?.toUpperCase() ?? 'ALL';
     const status = statusMap[statusParam] ?? undefined;
+    const fromParam = (req.query.from as string)?.trim();
+    const toParam = (req.query.to as string)?.trim();
 
-    const where: { userId: string; status?: OrderStatus } = { userId };
+    const where: { userId: string; status?: OrderStatus; createdAt?: { gte?: Date; lte?: Date } } = { userId };
     if (status) where.status = status;
+    if (fromParam || toParam) {
+      where.createdAt = {};
+      if (fromParam) {
+        const from = new Date(fromParam);
+        if (!Number.isNaN(from.getTime())) where.createdAt.gte = new Date(from.setHours(0, 0, 0, 0));
+      }
+      if (toParam) {
+        const to = new Date(toParam);
+        if (!Number.isNaN(to.getTime())) where.createdAt.lte = new Date(to.setHours(23, 59, 59, 999));
+      }
+    }
 
     const orders = await prisma.order.findMany({
       where,
@@ -75,6 +87,7 @@ userRouter.get('/orders', async (req: RequestWithAuth, res) => {
         items: {
           include: {
             product: { select: { name: true } },
+            selectedOptions: { include: { option: { select: { name: true } } } },
           },
         },
       },
@@ -84,6 +97,7 @@ userRouter.get('/orders', async (req: RequestWithAuth, res) => {
       id: o.id,
       orderNo: o.orderNo,
       orderNumber: o.orderNumber,
+      orderType: o.orderType,
       status: o.status,
       totalAmount: o.totalAmount,
       createdAt: o.createdAt,
@@ -92,6 +106,7 @@ userRouter.get('/orders', async (req: RequestWithAuth, res) => {
         productName: i.product.name,
         quantity: i.quantity,
         lineTotalAmount: i.lineTotalAmount,
+        optionNames: i.selectedOptions.map((so) => so.option.name),
       })),
     }));
 

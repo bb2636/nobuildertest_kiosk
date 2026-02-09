@@ -84,6 +84,7 @@ adminRouter.get('/orders', async (req, res) => {
         items: {
           include: {
             product: { select: { name: true } },
+            selectedOptions: { include: { option: { select: { name: true } } } },
           },
         },
       },
@@ -93,6 +94,7 @@ adminRouter.get('/orders', async (req, res) => {
       id: o.id,
       orderNo: o.orderNo,
       orderNumber: o.orderNumber,
+      orderType: o.orderType,
       status: o.status,
       totalAmount: o.totalAmount,
       createdAt: o.createdAt,
@@ -101,6 +103,7 @@ adminRouter.get('/orders', async (req, res) => {
         productName: i.product.name,
         quantity: i.quantity,
         lineTotalAmount: i.lineTotalAmount,
+        optionNames: i.selectedOptions.map((so) => so.option.name),
       })),
     }));
     res.json(list);
@@ -129,6 +132,7 @@ adminRouter.patch('/orders/:id', async (req, res) => {
     res.json({
       id: order.id,
       orderNo: order.orderNo,
+      orderType: order.orderType,
       status: order.status,
       totalAmount: order.totalAmount,
       customerName: order.user?.name ?? null,
@@ -193,6 +197,27 @@ adminRouter.post('/products', async (req, res) => {
       },
     });
     res.status(201).json(product);
+  } catch (e) {
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+/** DELETE /api/admin/products/:id - 메뉴 삭제 (주문 이력이 있으면 삭제 불가) */
+adminRouter.delete('/products/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const product = await prisma.product.findUnique({
+      where: { id },
+      select: { id: true, _count: { select: { orderItems: true } } },
+    });
+    if (!product) {
+      return res.status(404).json({ error: 'product not found' });
+    }
+    if (product._count.orderItems > 0) {
+      return res.status(409).json({ error: 'product_has_orders', message: '이 메뉴로 주문 내역이 있어 삭제할 수 없습니다.' });
+    }
+    await prisma.product.delete({ where: { id } });
+    res.status(204).send();
   } catch (e) {
     res.status(500).json({ error: 'failed' });
   }

@@ -1,20 +1,23 @@
 import { Router } from 'express';
-import { prisma } from '../db.js';
-import { OrderStatus } from '@prisma/client';
 import { createOrder } from '../services/orderService.js';
+import { optionalAuth, type RequestWithAuth } from '../middleware/auth.js';
 
 export const ordersRouter = Router();
 
 /** POST /api/orders - 주문 생성 (키오스크)
- * Body: { totalPrice: number, items: [{ productId, quantity, optionIds }] }
- * 트랜잭션으로 Order + OrderItem + OrderItemOption 생성, 실패 시 롤백.
- * 성공 시 201 + { orderNumber, orderNo, orderId }
+ * Body: { totalPrice, items, orderType?: DINE_IN|TAKE_OUT, paymentMethod?, usePoint? }
+ * orderType: 매장(DINE_IN) / 포장(TAKE_OUT). 없으면 매장.
+ * Authorization 있으면 로그인 사용자로 주문·포인트 10% 적립.
+ * 성공 시 201 + { orderNumber, orderNo, orderId, pointsEarned? }
  */
-ordersRouter.post('/', async (req, res) => {
+ordersRouter.post('/', optionalAuth, async (req: RequestWithAuth, res) => {
   try {
     const body = req.body as {
       totalPrice?: number;
       items?: { productId: string; quantity: number; optionIds?: string[] }[];
+      orderType?: 'DINE_IN' | 'TAKE_OUT';
+      paymentMethod?: 'CARD' | 'CASH' | 'MOBILE' | 'ETC' | 'TOSS';
+      usePoint?: number;
     };
 
     if (body == null || typeof body !== 'object') {
@@ -24,12 +27,17 @@ ordersRouter.post('/', async (req, res) => {
     const result = await createOrder({
       totalPrice: Number(body.totalPrice),
       items: Array.isArray(body.items) ? body.items : [],
+      userId: req.userId,
+      orderType: body.orderType,
+      paymentMethod: body.paymentMethod,
+      usePoint: body.usePoint,
     });
 
     res.status(201).json({
       orderNumber: result.orderNumber,
       orderNo: result.orderNo,
       orderId: result.orderId,
+      pointsEarned: result.pointsEarned,
     });
   } catch (e) {
     const err = e instanceof Error ? e : new Error(String(e));
@@ -39,6 +47,7 @@ ordersRouter.post('/', async (req, res) => {
       msg === 'INVALID_TOTAL_PRICE' ||
       msg === 'ITEMS_REQUIRED' ||
       msg === 'ITEMS_TOO_MANY' ||
+      msg === 'INVALID_USE_POINT' ||
       msg.startsWith('INVALID_ITEM_AT_INDEX') ||
       msg.startsWith('INVALID_PRODUCT_ID_AT_INDEX') ||
       msg.startsWith('INVALID_QUANTITY_AT_INDEX') ||
@@ -53,7 +62,10 @@ ordersRouter.post('/', async (req, res) => {
       msg === 'ORDER_ITEMS_EMPTY' ||
       msg.startsWith('ORDER_PRODUCT_NOT_FOUND') ||
       msg === 'ORDER_INVALID_QUANTITY' ||
-      msg === 'ORDER_TOTAL_MISMATCH'
+      msg === 'ORDER_TOTAL_MISMATCH' ||
+      msg === 'ORDER_USE_POINT_REQUIRES_LOGIN' ||
+      msg === 'ORDER_USE_POINT_EXCEEDS_TOTAL' ||
+      msg === 'ORDER_INSUFFICIENT_POINT'
     ) {
       return res.status(400).json({ error: msg });
     }
@@ -62,38 +74,4 @@ ordersRouter.post('/', async (req, res) => {
   }
 });
 
-/** GET /api/orders - 주문 목록 (백오피스: 실시간 현황) */
-ordersRouter.get('/', async (req, res) => {
-  try {
-    const status = req.query.status as string | undefined;
-    const where = status ? { status: status as OrderStatus } : {};
-    const list = await prisma.order.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        items: { include: { product: { select: { name: true } } } },
-      },
-    });
-    res.json(list);
-  } catch (e) {
-    res.status(500).json({ error: String(e) });
-  }
-});
-
-/** PATCH /api/orders/:id/status - 주문 상태 변경 (접수/제조중/준비완료 등) */
-ordersRouter.patch('/:id/status', async (req, res) => {
-  try {
-    const { status } = req.body as { status: OrderStatus };
-    if (!Object.values(OrderStatus).includes(status)) {
-      return res.status(400).json({ error: 'invalid status' });
-    }
-    const updated = await prisma.order.update({
-      where: { id: req.params.id },
-      data: { status },
-      include: { items: { include: { product: { select: { name: true } } } } },
-    });
-    res.json(updated);
-  } catch (e) {
-    res.status(500).json({ error: String(e) });
-  }
-});
+// 주문 목록·상태 변경은 관리자 전용: GET/PATCH /api/admin/orders

@@ -16,6 +16,13 @@ export type CreateOrderOutput = {
   orderNumber: number;
   orderNo: string;
   orderId: string;
+  pointsEarned?: number;
+};
+
+export type CreateOrderOptions = CreateOrderDto & {
+  userId?: string;
+  paymentMethod?: 'CARD' | 'CASH' | 'MOBILE' | 'ETC' | 'TOSS';
+  usePoint?: number;
 };
 
 const MAX_ITEMS = 50;
@@ -23,10 +30,27 @@ const MAX_OPTIONS_PER_ITEM = 20;
 
 /**
  * 주문 생성. 트랜잭션 내에서 Order, OrderItem, OrderItemOption 생성.
+ * userId 가 있으면 결제 금액의 10% 포인트 적립.
  * 실패 시 전체 롤백 후 에러 throw.
  */
-export async function createOrder(input: CreateOrderInput): Promise<CreateOrderOutput> {
-  const { totalPrice, items } = input;
+type CreateOrderPaymentMethod = 'CARD' | 'CASH' | 'MOBILE' | 'ETC' | 'TOSS';
+
+export async function createOrder(
+  input: Omit<CreateOrderInput, 'paymentMethod'> & {
+    userId?: string;
+    paymentMethod?: CreateOrderPaymentMethod;
+    usePoint?: number;
+    orderType?: 'DINE_IN' | 'TAKE_OUT';
+  }
+): Promise<CreateOrderOutput> {
+  const { totalPrice, items, userId, paymentMethod, usePoint = 0, orderType } = input;
+  const usePointAmount = Number(usePoint) || 0;
+  if (usePointAmount < 0 || !Number.isInteger(usePointAmount)) {
+    throw new Error('INVALID_USE_POINT');
+  }
+  const isToss = paymentMethod === 'TOSS';
+  const dtoPaymentMethod: CreateOrderDto['paymentMethod'] = isToss ? 'CARD' : paymentMethod ?? undefined;
+  const paymentStatus = isToss ? ('PENDING' as const) : undefined;
 
   if (typeof totalPrice !== 'number' || !Number.isInteger(totalPrice) || totalPrice < 1) {
     throw new Error('INVALID_TOTAL_PRICE');
@@ -71,6 +95,11 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderO
       quantity: Math.max(1, Number(i.quantity) || 1),
       optionIds: (i.optionIds ?? []).filter((id): id is string => typeof id === 'string'),
     })),
+    userId,
+    orderType: orderType === 'TAKE_OUT' ? 'TAKE_OUT' : 'DINE_IN',
+    paymentMethod: dtoPaymentMethod,
+    paymentStatus,
+    usePoint: usePointAmount > 0 ? usePointAmount : undefined,
   };
 
   const result: CreateOrderResult = await createOrderWithItems(dto);
@@ -79,5 +108,6 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderO
     orderNumber: result.orderNumber,
     orderNo: result.orderNo,
     orderId: result.orderId,
+    pointsEarned: result.pointsEarned,
   };
 }

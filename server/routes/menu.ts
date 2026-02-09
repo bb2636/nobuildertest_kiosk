@@ -1,11 +1,13 @@
 /**
  * 메뉴 API (Product 기준)
- * - 키오스크/백오피스: 목록·상세·등록·수정·삭제
- * - 스키마: Product (imageUrl, isAvailable), category, productOptions → option → optionGroup
+ * - GET: 공개 (키오스크·메뉴판)
+ * - POST/PATCH/DELETE: 관리자 전용
  */
 
 import { Router } from 'express';
 import { prisma } from '../db.js';
+import { requireAuth } from '../middleware/auth.js';
+import { requireAdmin } from '../middleware/requireAdmin.js';
 
 export const menuRouter = Router();
 
@@ -14,10 +16,13 @@ function toMenuItemShape(p: {
   id: string;
   categoryId: string;
   name: string;
+  englishName: string | null;
   description: string | null;
   basePrice: number;
   imageUrl: string | null;
   isAvailable: boolean;
+  isBest: boolean;
+  defaultShotCount: number | null;
   sortOrder: number;
   category: { id: string; name: string };
   productOptions?: Array<{
@@ -35,9 +40,12 @@ function toMenuItemShape(p: {
     id: p.id,
     categoryId: p.categoryId,
     name: p.name,
+    englishName: p.englishName ?? null,
     description: p.description,
     basePrice: p.basePrice,
     isSoldOut: !p.isAvailable,
+    isBest: p.isBest,
+    defaultShotCount: p.defaultShotCount ?? null,
     sortOrder: p.sortOrder,
     category: p.category,
     images: p.imageUrl ? [{ id: p.id, url: p.imageUrl, sortOrder: 0 }] : [],
@@ -95,8 +103,8 @@ menuRouter.get('/:id', async (req, res) => {
   }
 });
 
-/** POST /api/menu - 상품 등록 (백오피스) */
-menuRouter.post('/', async (req, res) => {
+/** POST /api/menu - 상품 등록 (관리자 전용) */
+menuRouter.post('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { categoryId, name, description, basePrice, isSoldOut, sortOrder } = req.body;
     if (!categoryId || !name || typeof basePrice !== 'number') {
@@ -118,8 +126,8 @@ menuRouter.post('/', async (req, res) => {
   }
 });
 
-/** PATCH /api/menu/:id - 수정 (품절 토글 등) */
-menuRouter.patch('/:id', async (req, res) => {
+/** PATCH /api/menu/:id - 수정 (관리자 전용) */
+menuRouter.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { name, description, basePrice, isSoldOut, sortOrder } = req.body;
     const data: Record<string, unknown> = {};
@@ -133,17 +141,23 @@ menuRouter.patch('/:id', async (req, res) => {
       data,
     });
     res.json(updated);
-  } catch (e) {
+  } catch (e: unknown) {
+    if (e && typeof e === 'object' && 'code' in e && (e as { code: string }).code === 'P2025') {
+      return res.status(404).json({ error: 'product not found' });
+    }
     res.status(500).json({ error: String(e) });
   }
 });
 
-/** DELETE /api/menu/:id */
-menuRouter.delete('/:id', async (req, res) => {
+/** DELETE /api/menu/:id (관리자 전용) */
+menuRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     await prisma.product.delete({ where: { id: req.params.id } });
     res.status(204).send();
-  } catch (e) {
+  } catch (e: unknown) {
+    if (e && typeof e === 'object' && 'code' in e && (e as { code: string }).code === 'P2025') {
+      return res.status(404).json({ error: 'product not found' });
+    }
     res.status(500).json({ error: String(e) });
   }
 });

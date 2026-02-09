@@ -28,3 +28,21 @@ export function requireAuth(req: RequestWithAuth, res: Response, next: NextFunct
     res.status(401).json({ error: 'unauthorized' });
   }
 }
+
+/** 토큰이 있으면 검증 후 req.userId 설정, 없거나 유효하지 않으면 그냥 통과 (401 안 냄) */
+export function optionalAuth(req: RequestWithAuth, res: Response, next: NextFunction): void {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) {
+    next();
+    return;
+  }
+  const token = header.slice(7);
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as AuthPayload;
+    req.userId = payload.sub;
+    req.authPayload = payload;
+  } catch {
+    // ignore
+  }
+  next();
+}

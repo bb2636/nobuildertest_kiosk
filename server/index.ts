@@ -3,7 +3,16 @@
  * - Prisma(Neon DB) 연결: server/db.ts
  * - 프론트는 Vite dev 시 proxy로 /api 호출
  * - Swagger UI: GET /api-docs
+ * - .env: 루트(step4) 또는 server 상위에서 로드
  */
+
+import path from 'path';
+import fs from 'fs';
+import { config } from 'dotenv';
+const cwd = process.cwd();
+const rootEnv = path.resolve(cwd, '.env');
+const parentEnv = path.resolve(cwd, '..', '.env');
+config({ path: fs.existsSync(rootEnv) ? rootEnv : parentEnv });
 
 import express from 'express';
 import cors from 'cors';
@@ -16,6 +25,7 @@ import { categoriesRouter } from './routes/categories';
 import { menuBoardRouter } from './routes/menuBoard';
 import { menuRouter } from './routes/menu';
 import { ordersRouter } from './routes/orders';
+import { paymentsRouter } from './routes/payments';
 import { userRouter } from './routes/user';
 
 const require = createRequire(import.meta.url);
@@ -47,6 +57,12 @@ app.use('/api/categories', categoriesRouter);
 app.use('/api/menu-board', menuBoardRouter);
 app.use('/api/menu', menuRouter);
 app.use('/api/orders', ordersRouter);
+app.use('/api/payments', paymentsRouter);
+
+/** 매칭되지 않은 API 요청 → 404 */
+app.use((_req, res) => {
+  res.status(404).json({ error: 'not_found' });
+});
 
 app.listen(PORT, () => {
   console.log(`[server] http://localhost:${PORT} (API: /api/..., Swagger: http://localhost:${PORT}/api-docs)`);

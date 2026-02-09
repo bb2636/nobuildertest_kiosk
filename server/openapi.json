@@ -60,7 +60,7 @@
     "/api/auth/login": {
       "post": {
         "tags": ["Auth"],
-        "summary": "로그인 (JWT 발급)",
+        "summary": "로그인 (Access 30분 + Refresh 7일 발급)",
         "requestBody": {
           "required": true,
           "content": {
@@ -81,6 +81,43 @@
           "400": { "description": "username, password 필수" },
           "401": { "description": "invalid username or password" }
         }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Refresh 토큰으로 Access 토큰 재발급 (Refresh 로테이션)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refreshToken"],
+                "properties": { "refreshToken": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "성공", "content": { "application/json": { "schema": { "type": "object", "properties": { "accessToken": { "type": "string" }, "refreshToken": { "type": "string" }, "expiresIn": { "type": "number" } } } } } },
+          "400": { "description": "refreshToken required" },
+          "401": { "description": "invalid or expired refresh token" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Refresh 토큰 폐기",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "refreshToken": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": { "204": { "description": "성공" } }
       }
     },
     "/api/auth/find-id": {
@@ -617,38 +654,6 @@
           },
           "400": { "description": "유효성 오류 (INVALID_TOTAL_PRICE, ITEMS_REQUIRED 등)" }
         }
-      },
-      "get": {
-        "tags": ["Orders"],
-        "summary": "주문 목록 (status 필터)",
-        "parameters": [
-          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["WAITING", "PREPARING", "PICKUP_READY", "COMPLETED", "CANCELED"] } }
-        ],
-        "responses": {
-          "200": { "description": "성공" }
-        }
-      }
-    },
-    "/api/orders/{id}/status": {
-      "patch": {
-        "tags": ["Orders"],
-        "summary": "주문 상태 변경",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["status"],
-                "properties": { "status": { "type": "string", "enum": ["WAITING", "PREPARING", "PICKUP_READY", "COMPLETED", "CANCELED"] } }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "성공" },
-          "400": { "description": "invalid status" }
-        }
       }
     }
   },
@@ -673,7 +678,9 @@
       "LoginResponse": {
         "type": "object",
         "properties": {
-          "token": { "type": "string" },
+          "accessToken": { "type": "string" },
+          "refreshToken": { "type": "string" },
+          "expiresIn": { "type": "number", "description": "Access 만료까지 초 단위 (1800=30분)" },
           "user": {
             "type": "object",
             "properties": {

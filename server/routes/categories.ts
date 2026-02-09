@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
+import { requireAuth } from '../middleware/auth.js';
+import { requireAdmin } from '../middleware/requireAdmin.js';
 
 export const categoriesRouter = Router();
 
-/** GET /api/categories - 활성 카테고리 목록 (키오스크 메뉴용) */
+/** GET /api/categories - 활성 카테고리 목록 (키오스크·메뉴용, 공개) */
 categoriesRouter.get('/', async (_req, res) => {
   try {
     const list = await prisma.category.findMany({
@@ -17,8 +19,8 @@ categoriesRouter.get('/', async (_req, res) => {
   }
 });
 
-/** POST /api/categories - 카테고리 등록 (백오피스) */
-categoriesRouter.post('/', async (req, res) => {
+/** POST /api/categories - 카테고리 등록 (관리자 전용) */
+categoriesRouter.post('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { name, isActive = true, sortOrder = 0 } = req.body;
     if (!name || typeof name !== 'string') {
@@ -33,8 +35,8 @@ categoriesRouter.post('/', async (req, res) => {
   }
 });
 
-/** PATCH /api/categories/:id */
-categoriesRouter.patch('/:id', async (req, res) => {
+/** PATCH /api/categories/:id (관리자 전용) */
+categoriesRouter.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { name, isActive, sortOrder } = req.body;
     const updated = await prisma.category.update({
@@ -46,17 +48,23 @@ categoriesRouter.patch('/:id', async (req, res) => {
       },
     });
     res.json(updated);
-  } catch (e) {
+  } catch (e: unknown) {
+    if (e && typeof e === 'object' && 'code' in e && (e as { code: string }).code === 'P2025') {
+      return res.status(404).json({ error: 'category not found' });
+    }
     res.status(500).json({ error: String(e) });
   }
 });
 
-/** DELETE /api/categories/:id */
-categoriesRouter.delete('/:id', async (req, res) => {
+/** DELETE /api/categories/:id (관리자 전용) */
+categoriesRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     await prisma.category.delete({ where: { id: req.params.id } });
     res.status(204).send();
-  } catch (e) {
+  } catch (e: unknown) {
+    if (e && typeof e === 'object' && 'code' in e && (e as { code: string }).code === 'P2025') {
+      return res.status(404).json({ error: 'category not found' });
+    }
     res.status(500).json({ error: String(e) });
   }
 });

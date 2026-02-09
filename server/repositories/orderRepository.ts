@@ -4,7 +4,7 @@
  * - 실패 시 전체 롤백
  */
 
-import { OrderStatus, PaymentStatus } from '@prisma/client';
+import { OrderStatus, OrderType, PaymentStatus } from '@prisma/client';
 import { prisma } from '../db.js';
 
 export type CreateOrderItemDto = {
@@ -16,20 +16,33 @@ export type CreateOrderItemDto = {
 export type CreateOrderDto = {
   totalPrice: number;
   items: CreateOrderItemDto[];
+  userId?: string;
+  /** 매장 DINE_IN | 포장 TAKE_OUT */
+  orderType?: OrderType;
+  paymentMethod?: 'CARD' | 'CASH' | 'MOBILE' | 'ETC';
+  /** 토스 등 외부 결제 시 PENDING으로 생성 후 승인 시 PAID 처리 */
+  paymentStatus?: 'PENDING' | 'PAID';
+  /** 매장 포인트 사용 금액 (원). 로그인 사용자만 사용 가능, 실제 결제액 = totalPrice - usePoint */
+  usePoint?: number;
 };
 
 export type CreateOrderResult = {
   orderId: string;
   orderNo: string;
   orderNumber: number;
+  pointsEarned?: number;
 };
 
 /**
  * 주문 + 주문 항목 + 선택 옵션을 하나의 트랜잭션으로 생성.
  * 중간에 실패하면 모든 작업이 롤백됨.
  */
+const POINT_RATE = 0.1; // 결제 금액의 10% 포인트 적립
+
 export async function createOrderWithItems(dto: CreateOrderDto): Promise<CreateOrderResult> {
-  const { totalPrice, items } = dto;
+  const { totalPrice, items, userId, orderType = OrderType.DINE_IN, paymentMethod, paymentStatus = 'PAID', usePoint = 0 } = dto;
+  const usePointAmount = Number(usePoint) || 0;
+  const payAmount = totalPrice - usePointAmount;
 
   if (items.length === 0) {
     throw new Error('ORDER_ITEMS_EMPTY');
@@ -108,15 +121,40 @@ export async function createOrderWithItems(dto: CreateOrderDto): Promise<CreateO
       throw new Error('ORDER_TOTAL_MISMATCH');
     }
 
+    if (usePointAmount > 0) {
+      if (!userId) throw new Error('ORDER_USE_POINT_REQUIRES_LOGIN');
+      if (usePointAmount > totalPrice) throw new Error('ORDER_USE_POINT_EXCEEDS_TOTAL');
+      const user = await tx.user.findUnique({ where: { id: userId }, select: { point: true } });
+      if (!user || user.point < usePointAmount) throw new Error('ORDER_INSUFFICIENT_POINT');
+      await tx.user.update({
+        where: { id: userId },
+        data: { point: { decrement: usePointAmount } },
+      });
+    }
+
     const order = await tx.order.create({
       data: {
         orderNo,
         orderNumber,
         status: OrderStatus.WAITING,
-        paymentStatus: PaymentStatus.PENDING,
-        totalAmount: totalPrice,
+        paymentStatus: paymentStatus === 'PENDING' ? PaymentStatus.PENDING : PaymentStatus.PAID,
+        totalAmount: payAmount,
+        userId: userId ?? null,
+        orderType,
+        paymentMethod: paymentMethod ?? null,
       },
     });
+
+    let pointsEarned = 0;
+    if (paymentStatus === 'PAID' && userId && payAmount > 0) {
+      pointsEarned = Math.floor(payAmount * POINT_RATE);
+      if (pointsEarned > 0) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { point: { increment: pointsEarned } },
+        });
+      }
+    }
 
     for (const line of orderLines) {
       const orderItem = await tx.orderItem.create({
@@ -142,6 +180,7 @@ export async function createOrderWithItems(dto: CreateOrderDto): Promise<CreateO
       orderId: order.id,
       orderNo,
       orderNumber,
+      pointsEarned: pointsEarned > 0 ? pointsEarned : undefined,
     };
   });
 }
