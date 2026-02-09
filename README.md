@@ -136,16 +136,4 @@ step4/
 
 상세 스펙은 **http://localhost:3001/api-docs** (Swagger) 참고.
 
----
 
-## 코드 점검 요약
-
-- **주문**: 매장/포장(`orderType`) 저장·목록 노출. 유저는 마이페이지에서 본인 주문만 조회(상태·기간 필터). 상태 변경은 관리자만(드롭다운 선택).
-- **주문 항목**: 선택 옵션(컵/콘 등)은 `OrderItemOption`으로 저장되며, 목록 API에서 `optionNames`로 반환·화면에 표시.
-- **결제**: 카드/토스 선택 시 토스 스크립트 로드 → PENDING 주문 생성 → 토스 결제창(`requestPayment`) 호출. 사용자가 결제 완료 시에만 success URL 리다이렉트 → `POST /api/payments/confirm` 호출 → 토스 승인 API 성공 시에만 주문 PAID 처리·포인트 적립·주문 완료 페이지 이동. 현금/모바일/기타는 결제창 없이 주문 생성 시 바로 PAID.
-- **메뉴 상세**: 젤라또는 컵/콘만 표시, 디저트는 옵션 없음. 그 외 메뉴는 온도·샷·원두 등 기존 옵션 유지.
-- **관리자 메뉴**: 등록 시 영문명·설명·이미지 URL·원재료 입력 가능. 삭제는 주문 이력 있으면 409.
-- **인증**: 주문 생성은 `optionalAuth`, 마이페이지·관리자 API는 JWT 필수. 관리자 라우트는 `requireAdmin` 적용.
-- **환경**: `.env`는 루트 또는 server 상위에서 로드. 토스 테스트 결제는 `test_ck_...` / `test_sk_...` 키 사용.
-
-추가 백엔드 점검: [docs/CODE_REVIEW_BACKEND.md](docs/CODE_REVIEW_BACKEND.md)
