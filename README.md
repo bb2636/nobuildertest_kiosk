@@ -87,7 +87,7 @@ step4/
 │   ├── middleware/        # auth, requireAdmin
 │   ├── services/           # orderService, menuBoardService
 │   └── repositories/       # orderRepository, menuBoardRepository
-├── docs/                   # NEON_PRISMA, TOSS_PAYMENTS, 아키텍처, 코드리뷰 등
+├── docs/                   # NEON_PRISMA, TOSS_PAYMENTS, 아키텍처 등
 ├── package.json            # workspaces (client, server)
 └── .env.example
 ```
