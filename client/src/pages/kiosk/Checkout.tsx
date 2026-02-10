@@ -5,6 +5,7 @@ import { api } from '../../api/client';
 import { useKioskCart } from '../../contexts/KioskCartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
+import { getPushSubscription } from '../../utils/pushNotification';
 
 const TOSS_SCRIPT_URL = 'https://js.tosspayments.com/v2/payment';
 
@@ -12,7 +13,12 @@ const TOSS_SCRIPT_URL = 'https://js.tosspayments.com/v2/payment';
 function loadTossScript(): Promise<void> {
   if (typeof window === 'undefined') return Promise.reject(new Error('No window'));
   const existing = document.querySelector(`script[src="${TOSS_SCRIPT_URL}"]`);
-  if (existing) return Promise.resolve();
+  if (existing) {
+    if (typeof (window as Window & { TossPayments?: unknown }).TossPayments !== 'undefined') {
+      return Promise.resolve();
+    }
+    return Promise.reject(new Error('토스 결제 스크립트 로드 실패'));
+  }
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = TOSS_SCRIPT_URL;
@@ -70,6 +76,7 @@ export function Checkout() {
   const [useStorePoint, setUseStorePoint] = useState(0); // 매장 포인트 사용액 (원)
   const [useTossPoint, setUseTossPoint] = useState(0); // 토스 포인트는 0으로 두고 UI만
   const [paymentMethod, setPaymentMethod] = useState<string>('CARD');
+  const [enablePush, setEnablePush] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -85,38 +92,60 @@ export function Checkout() {
     }
   }, [lines.length, navigate]);
 
+  useEffect(() => {
+    if (useStorePoint + useTossPoint <= totalPrice) return;
+    const newStore = Math.max(0, Math.min(useStorePoint, totalPrice - useTossPoint));
+    const newToss = Math.max(0, Math.min(useTossPoint, totalPrice - newStore));
+    setUseStorePoint(newStore);
+    setUseTossPoint(newToss);
+  }, [totalPrice, useStorePoint, useTossPoint]);
+
   const submitOrder = async () => {
     setError('');
     setSubmitting(true);
     try {
-      const usePoint = useStorePoint;
+      const usePoint = Math.min(useStorePoint, totalPrice);
       if (usePoint > 0 && (!user || (user.point ?? 0) < usePoint)) {
         setError('보유 포인트가 부족합니다.');
         setSubmitting(false);
         return;
       }
-      if (usePoint > totalPrice) {
+      if (usePoint > totalPrice || useStorePoint + useTossPoint > totalPrice) {
         setError('사용 포인트는 결제 금액을 초과할 수 없습니다.');
         setSubmitting(false);
         return;
       }
 
-      // 카드/토스 → 토스 결제창 띄움. 성공 시 /payment/success 리다이렉트 → confirm API 성공 후에만 주문 완료·PAID 처리
-      if (USE_TOSS_WINDOW.includes(paymentMethod)) {
+      // 카드/토스 + 결제금액 > 0 → 토스 결제창. 결제금액 0원(전액 포인트)이면 토스 창 없이 즉시 PAID 처리
+      const useTossWindow = USE_TOSS_WINDOW.includes(paymentMethod) && payAmount > 0;
+      if (useTossWindow) {
         const clientKey = import.meta.env.VITE_TOSSPAYMENTS_CLIENT_KEY as string | undefined;
         if (!clientKey || typeof clientKey !== 'string') {
           setError('토스 테스트 결제 키가 없습니다. .env에 VITE_TOSSPAYMENTS_CLIENT_KEY (테스트: test_ck_...) 를 설정하세요.');
           setSubmitting(false);
           return;
         }
-        // 스크립트 먼저 로드 후 주문 생성 → 결제창 호출 (창이 떠야만 토스 측에서 성공 시 successUrl로 리다이렉트)
-        await loadTossScript();
+        try {
+          await loadTossScript();
+        } catch {
+          try {
+            await new Promise((r) => setTimeout(r, 500));
+            await loadTossScript();
+          } catch {
+            setError('토스 결제 스크립트를 불러올 수 없습니다. 네트워크를 확인하거나 광고 차단을 해제한 후 다시 시도해 주세요.');
+            setSubmitting(false);
+            return;
+          }
+        }
         const TossPayments = window.TossPayments;
         if (!TossPayments) {
-          setError('토스 결제 스크립트를 불러올 수 없습니다.');
+          setError('토스 결제 스크립트를 불러올 수 없습니다. 네트워크를 확인하거나 광고 차단을 해제한 후 다시 시도해 주세요.');
           setSubmitting(false);
           return;
         }
+        const pushSub = enablePush
+          ? await getPushSubscription(import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined)
+          : null;
         const res = await api.orders.createOrder({
           totalPrice,
           items: lines.map((l) => ({
@@ -127,6 +156,7 @@ export function Checkout() {
           orderType: mealType,
           paymentMethod: 'TOSS',
           usePoint: usePoint > 0 ? usePoint : undefined,
+          pushSubscription: pushSub ?? undefined,
         });
         const origin = window.location.origin;
         const payment = TossPayments(clientKey).payment({ customerKey: user?.id ?? 'kiosk-guest' });
@@ -141,8 +171,13 @@ export function Checkout() {
         return;
       }
 
-      // 현금/모바일/기타 → 결제창 없이 즉시 PAID 처리 후 주문 완료 페이지로
-      const paymentMethodForApi = paymentMethod as 'CASH' | 'MOBILE' | 'ETC';
+      // 현금/모바일/기타 또는 전액 포인트(결제 0원) → 결제창 없이 즉시 PAID 처리
+      const paymentMethodForApi = (payAmount === 0 && USE_TOSS_WINDOW.includes(paymentMethod))
+        ? 'ETC'
+        : (paymentMethod as 'CASH' | 'MOBILE' | 'ETC');
+      const pushSub = enablePush
+        ? await getPushSubscription(import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined)
+        : null;
       const res = await api.orders.createOrder({
         totalPrice,
         items: lines.map((l) => ({
@@ -153,6 +188,7 @@ export function Checkout() {
         orderType: mealType,
         paymentMethod: paymentMethodForApi,
         usePoint: usePoint > 0 ? usePoint : undefined,
+        pushSubscription: pushSub ?? undefined,
       });
       clear();
       const params = new URLSearchParams({ orderNo: res.orderNo });
@@ -160,7 +196,12 @@ export function Checkout() {
       if (res.pointsEarned != null) params.set('points', String(res.pointsEarned));
       navigate(`/order-done?${params.toString()}`, { replace: true });
     } catch (e) {
-      setError(e instanceof Error ? e.message : '주문 처리에 실패했습니다.');
+      const msg = e instanceof Error ? e.message : '주문 처리에 실패했습니다.';
+      if (msg === 'ORDER_TOTAL_MISMATCH') {
+        setError('주문 금액이 일치하지 않습니다. 장바구니를 확인한 뒤 다시 시도해 주세요.');
+      } else {
+        setError(msg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -172,7 +213,7 @@ export function Checkout() {
 
   return (
     <div className="flex flex-col min-h-[100dvh] bg-white">
-      <header className="flex items-center justify-between px-4 py-3 border-b border-kiosk-border">
+      <header className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-kiosk-border">
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -185,7 +226,7 @@ export function Checkout() {
         <span className="w-8" />
       </header>
 
-      <main className="flex-1 overflow-auto px-4 py-4 space-y-0">
+      <main className="flex-1 overflow-auto px-4 md:px-6 py-4 space-y-0">
         {/* 식사 방법 */}
         <section className="border-b border-kiosk-border pb-4">
           <h2 className="text-sm font-medium text-kiosk-text mb-2">식사 방법</h2>
@@ -234,7 +275,7 @@ export function Checkout() {
               {storePoint > 0 && (
                 <button
                   type="button"
-                  onClick={() => setUseStorePoint(useStorePoint > 0 ? 0 : Math.min(storePoint, totalPrice))}
+                  onClick={() => setUseStorePoint(useStorePoint > 0 ? 0 : Math.min(storePoint, totalPrice - useTossPoint))}
                   className={`w-full flex items-center justify-between rounded-xl py-3 px-4 text-sm font-medium mb-2 ${
                     useStorePoint > 0
                       ? 'bg-kiosk-primary text-kiosk-text'
@@ -257,7 +298,7 @@ export function Checkout() {
               {tossPoint > 0 && (
                 <button
                   type="button"
-                  onClick={() => setUseTossPoint(useTossPoint > 0 ? 0 : Math.min(tossPoint, totalPrice))}
+                  onClick={() => setUseTossPoint(useTossPoint > 0 ? 0 : Math.min(tossPoint, totalPrice - useStorePoint))}
                   className={`w-full flex items-center justify-between rounded-xl py-3 px-4 text-sm ${
                     useTossPoint > 0 ? 'bg-blue-100 text-blue-800' : 'bg-kiosk-surface text-kiosk-textSecondary border border-kiosk-border'
                   }`}
@@ -314,7 +355,16 @@ export function Checkout() {
         )}
       </main>
 
-      <footer className="sticky bottom-0 border-t border-kiosk-border bg-white p-4 safe-area-pb">
+      <footer className="sticky bottom-0 border-t border-kiosk-border bg-white p-4 md:p-6 safe-area-pb">
+        <label className="flex items-center gap-2 mb-3 text-sm text-kiosk-text cursor-pointer">
+          <input
+            type="checkbox"
+            checked={enablePush}
+            onChange={(e) => setEnablePush(e.target.checked)}
+            className="rounded border-kiosk-border"
+          />
+          주문 상태 알림 받기 (접수·제조·픽업·완료 시 푸시)
+        </label>
         <div className="space-y-2 mb-4">
           {user && (
             <div className="flex justify-between text-sm text-kiosk-textSecondary">

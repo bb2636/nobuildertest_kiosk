@@ -14,7 +14,7 @@ type ErrorPageProps = {
 /** 예외 처리 페이지 공통 레이아웃 */
 export function ErrorPage({ title, description, statusCode, actions }: ErrorPageProps) {
   return (
-    <div className="min-h-[100dvh] flex flex-col items-center justify-center p-6 bg-kiosk-bg text-kiosk-text text-center">
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center p-4 sm:p-6 bg-kiosk-bg text-kiosk-text text-center">
       {statusCode != null && (
         <p className="text-4xl font-bold text-kiosk-textSecondary mb-2">{statusCode}</p>
       )}

@@ -5,6 +5,7 @@ import { useKioskCart } from '../../contexts/KioskCartContext';
 import { Button } from '../../components/ui/Button';
 import { ShoppingCart, ChevronRight } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
+import { parseCalories } from '../../utils/parseCalories';
 
 type OptionRow = { id: string; name: string; type: string; extraPrice: number };
 
@@ -151,93 +152,163 @@ export function KioskMenuDetail() {
           })
           .filter(Boolean) as string[]);
 
+  const nutrition = parseCalories(item.calories);
+
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-[#f5f5f5]">
-      <header className="flex items-center justify-between px-4 py-3 bg-white border-b border-kiosk-border">
-        <button type="button" onClick={() => navigate(-1)} className="text-kiosk-text p-2 -ml-2">
+    <div className="flex flex-col min-h-[100dvh] bg-white">
+      <header className="flex items-center justify-between px-4 md:px-6 py-3 bg-white border-b border-gray-200">
+        <button type="button" onClick={() => navigate(-1)} className="text-black p-2 -ml-2 text-xl">
           ←
         </button>
-        <Link to="/" className="text-lg font-semibold text-kiosk-text">
+        <Link to="/" className="text-lg font-semibold text-black">
           FELN
         </Link>
         <Link to="/cart" className="p-2" aria-label="장바구니">
-          <ShoppingCart className="h-5 w-5 text-kiosk-text" />
+          <ShoppingCart className="h-5 w-5 text-black" />
         </Link>
       </header>
 
-      <main className="flex-1 overflow-auto p-4">
-        <div className="bg-white rounded-xl overflow-hidden shadow-sm mb-4">
-          <div className="flex gap-4 p-4">
-            <div className="w-24 h-24 shrink-0 rounded-md bg-white overflow-hidden flex items-center justify-center relative">
-              {item.images[0]?.url ? (
-                <>
-                  <img
-                    src={item.images[0].url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                      (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                    }}
-                  />
-                  <span className="hidden absolute inset-0 flex items-center justify-center text-kiosk-textSecondary text-xs bg-white">
-                    이미지 없음
-                  </span>
-                </>
-              ) : (
-                <span className="text-kiosk-textSecondary text-xs">이미지 없음</span>
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold text-kiosk-text">{item.name}</h2>
-                {item.isBest && (
-                  <span className="bg-kiosk-primary text-kiosk-text text-[10px] font-bold px-2 py-0.5 rounded">
-                    Best
-                  </span>
+      <main className="flex-1 overflow-auto">
+        {/* 젤라또/디저트: 왼쪽 원형 이미지 + 오른쪽 정보, 컵/콘 토글, 영양정보 */}
+        {isGelatoOrDessert && (
+          <div className="p-4 md:p-6">
+            <div className="flex gap-4 mb-4">
+              <div className="w-24 h-24 shrink-0 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center relative">
+                {item.images[0]?.url ? (
+                  <>
+                    <img
+                      src={item.images[0].url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                    <span className="hidden absolute inset-0 flex items-center justify-center text-gray-400 text-xs bg-white">
+                      이미지 없음
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-gray-400 text-xs">이미지 없음</span>
                 )}
               </div>
-              {item.englishName && (
-                <p className="text-sm text-kiosk-textSecondary mt-0.5">{item.englishName}</p>
-              )}
-              <p className="text-base font-medium text-kiosk-text mt-1">
-                {item.basePrice.toLocaleString()}원
-              </p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-xl font-bold text-black">{item.name}</h2>
+                  {item.isBest && (
+                    <span className="bg-[#FFC107] text-white text-xs font-bold px-2 py-0.5 rounded">
+                      Best
+                    </span>
+                  )}
+                </div>
+                {item.englishName && (
+                  <p className="text-sm text-gray-500 mt-0.5">{item.englishName}</p>
+                )}
+                <p className="text-lg font-bold text-black mt-1">
+                  {item.basePrice.toLocaleString()}원
+                </p>
+              </div>
             </div>
-          </div>
 
-          {isGelato && cupConeOptions.length >= 2 && (
-            <div className="px-4 pb-4">
-              <p className="text-xs text-kiosk-textSecondary mb-2">컵/콘</p>
-              <div className="flex w-full rounded-lg overflow-hidden border border-kiosk-border">
+            {isGelato && cupConeOptions.length >= 2 && (
+              <div className="flex rounded-full bg-gray-100 p-0.5 border border-gray-200 mb-4">
                 {cupConeOptions.map((opt) => (
                   <button
                     key={opt.id}
                     type="button"
                     onClick={() => setOption('컵/콘', opt.id)}
-                    className={`flex-1 py-2.5 text-sm font-medium ${
+                    className={`flex-1 py-2.5 text-sm font-medium rounded-full ${
                       selectedOptionIds['컵/콘'] === opt.id
-                        ? 'bg-kiosk-primary text-kiosk-text'
-                        : 'bg-white text-kiosk-textSecondary'
+                        ? 'bg-white text-black border border-gray-300 shadow-sm'
+                        : 'text-gray-500'
                     }`}
                   >
                     {opt.name}
                   </button>
                 ))}
               </div>
+            )}
+
+            {nutrition && (
+              <div className="mb-4">
+                <h3 className="text-sm font-medium text-black">영양정보</h3>
+                <p className="text-xs text-gray-500 mt-0.5">1회 제공량 : 120g (약 1컵 분량)</p>
+                <div className="mt-2 border-t border-gray-200 divide-y divide-gray-100">
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className="text-gray-600">열량</span>
+                    <span className="text-black">{nutrition.kcal}kcal</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className="text-gray-600">탄수화물</span>
+                    <span className="text-black">{nutrition.carb}g(11%)</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className="text-gray-600">당류</span>
+                    <span className="text-black">{nutrition.sugar}g</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className="text-gray-600">단백질</span>
+                    <span className="text-black">{nutrition.protein}g(7%)</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className="text-gray-600">지방</span>
+                    <span className="text-black">{nutrition.fat}g(30%)</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className="text-gray-600">포화지방</span>
+                    <span className="text-black">{nutrition.saturatedFat}g</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 커피 등: 상단 큰 이미지, 이름·설명·가격, 온도·원두·옵션 행 */}
+        {!isGelatoOrDessert && (
+          <>
+            <div className="w-full aspect-[4/3] max-h-56 bg-gray-100 flex items-center justify-center overflow-hidden">
+              {item.images[0]?.url ? (
+                <img
+                  src={item.images[0].url}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <span className="text-gray-400 text-sm">이미지 없음</span>
+              )}
             </div>
-          )}
-          {!isGelatoOrDessert && (
-            <div className="px-4 pb-4">
-              <p className="text-xs text-kiosk-textSecondary mb-2">온도</p>
-              <div className="flex w-full rounded-lg overflow-hidden border border-kiosk-border">
+            <div className="p-4 md:p-6">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-bold text-black">{item.name}</h2>
+                {item.isBest && (
+                  <span className="bg-[#FFC107] text-black text-xs font-bold px-2 py-0.5 rounded">
+                    Best
+                  </span>
+                )}
+              </div>
+              {item.englishName && (
+                <p className="text-sm text-gray-500 mt-0.5">{item.englishName}</p>
+              )}
+              {item.description && (
+                <p className="text-sm text-gray-600 mt-1 leading-relaxed">{item.description}</p>
+              )}
+              <p className="text-lg font-bold text-black mt-2">
+                {item.basePrice.toLocaleString()}원
+              </p>
+
+              <div className="flex rounded-full bg-gray-100 p-0.5 border border-gray-200 mt-4">
                 <button
                   type="button"
                   onClick={() => setTemperature('HOT')}
-                  className={`flex-1 py-2.5 text-sm font-medium ${
+                  className={`flex-1 py-2.5 text-sm font-medium rounded-full ${
                     temperature === 'HOT'
-                      ? 'bg-[#e8a0a0] text-[#8b3a3a]'
-                      : 'bg-white text-kiosk-textSecondary'
+                      ? 'bg-white text-red-600 border border-gray-200 shadow-sm'
+                      : 'text-gray-500'
                   }`}
                 >
                   HOT
@@ -245,161 +316,140 @@ export function KioskMenuDetail() {
                 <button
                   type="button"
                   onClick={() => setTemperature('ICED')}
-                  className={`flex-1 py-2.5 text-sm font-medium ${
+                  className={`flex-1 py-2.5 text-sm font-medium rounded-full ${
                     temperature === 'ICED'
-                      ? 'bg-[#a0c8e8] text-[#2a5a8a]'
-                      : 'bg-white text-kiosk-textSecondary'
+                      ? 'bg-gray-200 text-blue-600'
+                      : 'text-gray-500'
                   }`}
                 >
                   ICED
                 </button>
               </div>
             </div>
-          )}
-        </div>
-
-        {Object.entries(filteredOptionsByType).map(([type, opts]) => {
-          if (isGelato && type === '컵/콘') return null;
-          if (isShotType(type)) {
-            return (
-              <div key={type} className="bg-white rounded-xl p-4 mb-4 shadow-sm">
-                <button
-                  type="button"
-                  onClick={() => setOptionModal({ type, opts })}
-                  className="w-full flex items-center justify-between text-left"
-                >
-                  <p className="text-sm font-medium text-kiosk-text">{type.replace(/ \(.*\)/, '')}</p>
-                  <span className="text-sm text-kiosk-textSecondary flex items-center gap-1">
-                    기본 {shotCount}샷
-                    <ChevronRight className="h-4 w-4" />
-                  </span>
-                </button>
-              </div>
-            );
-          }
-          if (isBeanType(type)) {
-            const selectedId = selectedOptionIds[type];
-            const selectedOpt = opts.find((o) => o.id === selectedId);
-            const descKey = selectedOpt?.name?.split(' ')[0] ?? selectedOpt?.name ?? '';
-            const description = BEAN_DESCRIPTIONS[descKey];
-            return (
-              <div key={type} className="bg-white rounded-xl p-4 mb-4 shadow-sm">
-                <p className="text-sm font-medium text-kiosk-text mb-3">{type}</p>
-                <div className="flex flex-wrap gap-2">
-                  {opts.map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setOption(type, opt.id)}
-                      className={`rounded-lg px-4 py-2.5 text-sm font-medium border ${
-                        selectedOptionIds[type] === opt.id
-                          ? 'border-kiosk-text bg-kiosk-surface text-kiosk-text'
-                          : 'border-kiosk-border bg-white text-kiosk-textSecondary'
-                      }`}
-                    >
-                      {opt.name}
-                      {opt.extraPrice > 0 && ` (+${opt.extraPrice.toLocaleString()}원)`}
-                    </button>
-                  ))}
-                </div>
-                {description && (
-                  <p className="text-sm text-kiosk-textSecondary mt-3 leading-relaxed whitespace-pre-line">
-                    {description}
-                  </p>
-                )}
-              </div>
-            );
-          }
-          if (isMilkOrSyrup(type)) {
-            const selectedId = selectedOptionIds[type];
-            const selectedOpt = opts.find((o) => o.id === selectedId);
-            return (
-              <div key={type} className="bg-white rounded-xl p-4 mb-4 shadow-sm">
-                <button
-                  type="button"
-                  onClick={() => setOptionModal({ type, opts })}
-                  className="w-full flex items-center justify-between text-left"
-                >
-                  <p className="text-sm font-medium text-kiosk-text">{type}</p>
-                  <span className="text-sm text-kiosk-textSecondary flex items-center gap-1">
-                    {selectedOpt?.name ?? '선택'}
-                    <ChevronRight className="h-4 w-4" />
-                  </span>
-                </button>
-              </div>
-            );
-          }
-          return (
-            <div key={type} className="bg-white rounded-xl p-4 mb-4 shadow-sm">
-              <p className="text-sm font-medium text-kiosk-text mb-3">{type}</p>
-              <div className="flex flex-wrap gap-2">
-                {opts.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setOption(type, opt.id)}
-                    className={`rounded-lg px-4 py-2.5 text-sm font-medium border ${
-                      selectedOptionIds[type] === opt.id
-                        ? 'border-kiosk-text bg-kiosk-surface text-kiosk-text'
-                        : 'border-kiosk-border bg-white text-kiosk-textSecondary'
-                    }`}
-                  >
-                    {opt.name}
-                    {opt.extraPrice > 0 && ` (+${opt.extraPrice.toLocaleString()}원)`}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-
-        {item.description && (
-          <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
-            <p className="text-sm text-kiosk-textSecondary leading-relaxed">{item.description}</p>
-          </div>
+          </>
         )}
 
-        {(isGelato && selectedOptionLabels.length > 0) || !isGelatoOrDessert ? (
-          <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
-            <p className="text-xs text-kiosk-textSecondary mb-2">변경된 옵션</p>
-            <p className="text-sm text-kiosk-text">
+        {!isGelatoOrDessert &&
+          Object.entries(filteredOptionsByType).map(([type, opts]) => {
+            if (isShotType(type)) {
+              return (
+                <div key={type} className="px-4 md:px-6 pb-3">
+                  <button
+                    type="button"
+                    onClick={() => setOptionModal({ type, opts })}
+                    className="w-full flex items-center justify-between text-left py-2 border-b border-gray-100"
+                  >
+                    <p className="text-sm font-medium text-black">{type.replace(/ \(.*\)/, '')}</p>
+                    <span className="text-sm text-gray-500 flex items-center gap-1">
+                      기본 {shotCount}샷
+                      <ChevronRight className="h-4 w-4" />
+                    </span>
+                  </button>
+                </div>
+              );
+            }
+            if (isBeanType(type)) {
+              const selectedId = selectedOptionIds[type];
+              const selectedOpt = opts.find((o) => o.id === selectedId);
+              const descKey = selectedOpt?.name?.split(' ')[0] ?? selectedOpt?.name ?? '';
+              const description = BEAN_DESCRIPTIONS[descKey];
+              return (
+                <div key={type} className="px-4 md:px-6 pb-4">
+                  <p className="text-sm font-medium text-black mb-3">{type}</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {opts.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setOption(type, opt.id)}
+                        className={`rounded-lg px-4 py-2.5 text-sm font-medium border min-w-[80px] ${
+                          selectedOptionIds[type] === opt.id
+                            ? 'border-black bg-white text-black'
+                            : 'border-gray-200 bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        <span className="block font-medium">{opt.name.split(' ')[0] ?? opt.name}</span>
+                        <span className="block text-xs opacity-80">
+                          {opt.name.includes(' ') ? opt.name.split(' ').slice(1).join(' ') : ''}
+                        </span>
+                        {opt.extraPrice > 0 && (
+                          <span className="text-xs">+{opt.extraPrice.toLocaleString()}원</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  {description && (
+                    <p className="text-sm text-gray-500 mt-3 leading-relaxed whitespace-pre-line">
+                      {description}
+                    </p>
+                  )}
+                </div>
+              );
+            }
+            if (isMilkOrSyrup(type)) {
+              const selectedId = selectedOptionIds[type];
+              const selectedOpt = opts.find((o) => o.id === selectedId);
+              return (
+                <div key={type} className="px-4 md:px-6 pb-3">
+                  <button
+                    type="button"
+                    onClick={() => setOptionModal({ type, opts })}
+                    className="w-full flex items-center justify-between text-left py-2 border-b border-gray-100"
+                  >
+                    <p className="text-sm font-medium text-black">{type}</p>
+                    <span className="text-sm text-gray-500 flex items-center gap-1">
+                      {selectedOpt?.name ?? '선택'}
+                      <ChevronRight className="h-4 w-4" />
+                    </span>
+                  </button>
+                </div>
+              );
+            }
+            return null;
+          })}
+
+        {((isGelato && selectedOptionLabels.length > 0) || !isGelatoOrDessert) && (
+          <div className="px-4 md:px-6 py-3 border-t border-gray-100">
+            <p className="text-xs text-gray-500 mb-1">변경된 옵션</p>
+            <p className="text-sm text-black">
               {isGelato
                 ? selectedOptionLabels.join(' · ')
                 : [`온도 ${temperature}`, `샷 ${shotCount}`, ...selectedOptionLabels].filter(Boolean).join(' · ')}
             </p>
           </div>
-        ) : null}
+        )}
 
-        <div className="flex items-center justify-between bg-white rounded-xl p-4 shadow-sm">
+        <div className="flex items-center justify-between px-4 md:px-6 py-4 border-t border-gray-100">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="w-9 h-9 rounded-full border border-kiosk-border flex items-center justify-center text-kiosk-text disabled:opacity-40"
+              className="w-9 h-9 rounded-full border border-gray-300 flex items-center justify-center text-black disabled:opacity-40"
             >
               −
             </button>
-            <span className="w-8 text-center font-medium text-kiosk-text">{quantity}</span>
+            <span className="w-8 text-center font-medium text-black">{quantity}</span>
             <button
               type="button"
               onClick={() => setQuantity((q) => q + 1)}
-              className="w-9 h-9 rounded-full border border-kiosk-border flex items-center justify-center text-kiosk-text"
+              className="w-9 h-9 rounded-full border border-gray-300 flex items-center justify-center text-black"
             >
               +
             </button>
           </div>
-          <span className="font-semibold text-kiosk-text">{totalPrice.toLocaleString()}원</span>
+          <span className="text-lg font-bold text-black">{totalPrice.toLocaleString()}원</span>
         </div>
       </main>
 
-      <footer className="sticky bottom-0 bg-white border-t border-kiosk-border p-4 safe-area-pb">
+      <footer className="sticky bottom-0 bg-white border-t border-gray-200 p-4 md:p-6 safe-area-pb">
         <Button
           theme="kiosk"
           fullWidth
           onClick={item.isSoldOut ? undefined : addToCart}
           disabled={item.isSoldOut}
+          className="bg-[#FFC107] text-black font-bold hover:bg-amber-400"
         >
-          {item.isSoldOut ? '품절' : '메뉴 담기'}
+          {item.isSoldOut ? '품절' : isGelatoOrDessert ? '담기' : '메뉴 담기'}
         </Button>
       </footer>
 

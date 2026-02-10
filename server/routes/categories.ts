@@ -38,9 +38,10 @@ categoriesRouter.post('/', requireAuth, requireAdmin, async (req, res) => {
 /** PATCH /api/categories/:id (관리자 전용) */
 categoriesRouter.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
+    const id = typeof req.params.id === 'string' ? req.params.id : (req.params.id as string[])?.[0] ?? '';
     const { name, isActive, sortOrder } = req.body;
     const updated = await prisma.category.update({
-      where: { id: req.params.id },
+      where: { id },
       data: {
         ...(name !== undefined && { name: String(name).trim() }),
         ...(typeof isActive === 'boolean' && { isActive }),
@@ -59,7 +60,8 @@ categoriesRouter.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
 /** DELETE /api/categories/:id (관리자 전용) */
 categoriesRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
-    await prisma.category.delete({ where: { id: req.params.id } });
+    const id = typeof req.params.id === 'string' ? req.params.id : (req.params.id as string[])?.[0] ?? '';
+    await prisma.category.delete({ where: { id } });
     res.status(204).send();
   } catch (e: unknown) {
     if (e && typeof e === 'object' && 'code' in e && (e as { code: string }).code === 'P2025') {

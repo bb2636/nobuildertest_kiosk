@@ -3,6 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Lottie from 'lottie-react';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
+import { api } from '../../api/client';
+import { getPushSubscription } from '../../utils/pushNotification';
 
 const AUTO_REDIRECT_SEC = 5;
 
@@ -15,6 +17,22 @@ export function OrderDone() {
   const pointsEarned = searchParams.get('points') ?? '';
   const [animationData, setAnimationData] = useState<object | null>(null);
   const [countdown, setCountdown] = useState(AUTO_REDIRECT_SEC);
+  const [pushRegistered, setPushRegistered] = useState(false);
+  const [pushRegistering, setPushRegistering] = useState(false);
+
+  const handleEnablePush = async () => {
+    if (!orderId || pushRegistered || pushRegistering) return;
+    setPushRegistering(true);
+    try {
+      const sub = await getPushSubscription(import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined);
+      if (sub) {
+        await api.orders.registerPushSubscription(orderId, sub);
+        setPushRegistered(true);
+      }
+    } finally {
+      setPushRegistering(false);
+    }
+  };
 
   useEffect(() => {
     fetch('/lottie/success.json')
@@ -33,7 +51,7 @@ export function OrderDone() {
   }, [countdown, navigate]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] p-6 text-center">
+    <div className="flex flex-col items-center justify-center min-h-[80vh] p-4 sm:p-6 text-center">
       <div className="w-48 h-48 mb-4 flex items-center justify-center">
         {animationData ? (
           <Lottie
@@ -60,6 +78,17 @@ export function OrderDone() {
         <span className="font-medium text-kiosk-text">{countdown}</span>초 뒤 자동으로 홈으로 이동합니다.
       </p>
       <div className="flex flex-col gap-3 w-full max-w-xs">
+        {orderId && !pushRegistered && (
+          <Button
+            theme="kiosk"
+            variant="secondary"
+            fullWidth
+            onClick={handleEnablePush}
+            disabled={pushRegistering}
+          >
+            {pushRegistering ? '등록 중…' : '주문 상태 알림 받기'}
+          </Button>
+        )}
         {orderId && user && (
           <Link to={`/mypage/orders/${orderId}`} className="block">
             <Button theme="kiosk" variant="secondary" fullWidth>

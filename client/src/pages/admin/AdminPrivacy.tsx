@@ -26,6 +26,7 @@ export function AdminPrivacy() {
   }, []);
 
   const handleSave = async () => {
+    if (!window.confirm('개인정보 처리방침을 저장하시겠습니까?')) return;
     setSaving(true);
     try {
       const data = await api.admin.privacy.update(content);

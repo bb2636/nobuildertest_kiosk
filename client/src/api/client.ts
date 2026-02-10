@@ -143,17 +143,24 @@ export const api = {
   },
 
   orders: {
-    /** 주문 생성. orderType: 매장(DINE_IN)/포장(TAKE_OUT). 로그인 시 포인트 10% 적립. usePoint: 매장 포인트 사용액. paymentMethod 'TOSS'면 PENDING 생성 후 토스 결제창 호출용. */
+    /** 주문 생성. pushSubscription 있으면 저장 후 접수 푸시 발송. */
     createOrder: (body: {
       totalPrice: number;
       items: { productId: string; quantity: number; optionIds: string[] }[];
       orderType?: 'DINE_IN' | 'TAKE_OUT';
       paymentMethod?: 'CARD' | 'CASH' | 'MOBILE' | 'ETC' | 'TOSS';
       usePoint?: number;
+      pushSubscription?: { endpoint: string; keys: { p256dh: string; auth: string } };
     }) =>
       request<{ orderNumber: number; orderNo: string; orderId: string; pointsEarned?: number }>('/orders', {
         method: 'POST',
         body: JSON.stringify(body),
+      }),
+    /** 주문 알림 구독 등록 (주문 완료 페이지에서 호출, 접수 푸시 1회 발송) */
+    registerPushSubscription: (orderId: string, subscription: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+      request<void>(`/orders/${orderId}/push-subscription`, {
+        method: 'POST',
+        body: JSON.stringify({ subscription }),
       }),
   },
 
@@ -226,11 +233,18 @@ export const api = {
 
   /** 관리자 전용 (JWT 필요, role ADMIN) */
   admin: {
+    users: {
+      list: () => request<AdminUserListItem[]>('/admin/users'),
+      delete: (id: string) => request<void>(`/admin/users/${id}`, { method: 'DELETE' }),
+      getOrders: (userId: string) => request<AdminOrderListItem[]>(`/admin/users/${userId}/orders`),
+    },
     orders: {
-      list: (status?: string) =>
+      list: (params?: { status?: string; from?: string; to?: string }) =>
         request<AdminOrderListItem[]>(
           '/admin/orders',
-          status ? { params: { status } } : undefined
+          params && Object.keys(params).length > 0
+            ? { params: Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')) as Record<string, string> }
+            : undefined
         ),
       updateStatus: (id: string, status: string) =>
         request<Order>(`/admin/orders/${id}`, {
@@ -308,6 +322,7 @@ export type MenuItem = {
   defaultShotCount: number | null;
   sortOrder: number;
   category: { id: string; name: string };
+  calories: string | null;
   images: { id: string; url: string; sortOrder: number }[];
   options: { id: string; name: string; type: string; choices: string | null; extraPrice: number }[];
 };
@@ -328,7 +343,7 @@ export type Order = {
   }[];
 };
 
-/** GET /api/user/orders 응답 항목 (해당 로그인 유저 주문만) */
+/** GET /api/user/orders 응답 항목 (해당 로그인 유저 주문만). 완료/취소 24h 지나면 푸시 알림만 삭제, 상세 조회는 계속 가능 */
 export type UserOrderItem = {
   id: string;
   orderNo: string;
@@ -337,7 +352,19 @@ export type UserOrderItem = {
   orderType: 'DINE_IN' | 'TAKE_OUT';
   totalAmount: number;
   createdAt: string;
+  updatedAt?: string;
   items: { id: string; productName: string; imageUrl?: string; quantity: number; lineTotalAmount: number; optionNames?: string[] }[];
+};
+
+/** GET /api/admin/users 응답 항목 */
+export type AdminUserListItem = {
+  id: string;
+  memberNo: string;
+  name: string;
+  username: string;
+  email: string;
+  orderCount: number;
+  createdAt: string;
 };
 
 /** GET /api/admin/orders 응답 항목 (items[].productName) */

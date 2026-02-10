@@ -19,7 +19,7 @@ export function KioskCart() {
 
   return (
     <div className="flex flex-col min-h-[100dvh]">
-      <header className="flex items-center justify-between px-4 py-3 border-b border-kiosk-border">
+      <header className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-kiosk-border">
         <Link to="/" className="text-kiosk-text">
           ← 메뉴
         </Link>
@@ -27,7 +27,7 @@ export function KioskCart() {
         <span className="w-8" />
       </header>
 
-      <main className="flex-1 overflow-auto p-4">
+      <main className="flex-1 overflow-auto p-4 md:p-6">
         <ul className="space-y-3">
           {lines.map((line, index) => (
             <li
@@ -71,7 +71,7 @@ export function KioskCart() {
         </ul>
       </main>
 
-      <footer className="sticky bottom-0 border-t border-kiosk-border bg-kiosk-bg p-4">
+      <footer className="sticky bottom-0 border-t border-kiosk-border bg-kiosk-bg p-4 md:p-6">
         <div className="flex items-center justify-between mb-3">
           <span className="text-kiosk-textSecondary">총 결제 금액</span>
           <span className="text-lg font-semibold text-kiosk-text">{totalPrice.toLocaleString()}원</span>

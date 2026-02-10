@@ -8,8 +8,9 @@ import { Router } from 'express';
 import { prisma } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, PaymentStatus } from '@prisma/client';
 import { cancelTossPayment, POINT_RATE } from '../services/tossCancel.js';
+import { notifyOrderStatusChanged } from '../services/pushService.js';
 
 export const adminRouter = Router();
 
@@ -48,7 +49,44 @@ adminRouter.get('/users', async (_req, res) => {
   }
 });
 
-/** DELETE /api/admin/users/:id - 유저 삭제 */
+/** GET /api/admin/users/:id/orders - 해당 유저의 주문 목록 (상세 확인용) */
+adminRouter.get('/users/:id/orders', async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const orders = await prisma.order.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        items: {
+          include: {
+            product: { select: { name: true } },
+            selectedOptions: { include: { option: { select: { name: true } } } },
+          },
+        },
+      },
+    });
+    const list = orders.map((o) => ({
+      id: o.id,
+      orderNo: o.orderNo,
+      orderNumber: o.orderNumber,
+      orderType: o.orderType,
+      status: o.status,
+      totalAmount: o.totalAmount,
+      createdAt: o.createdAt,
+      items: o.items.map((i) => ({
+        productName: i.product.name,
+        quantity: i.quantity,
+        lineTotalAmount: i.lineTotalAmount,
+        optionNames: i.selectedOptions.map((so) => so.option.name),
+      })),
+    }));
+    res.json(list);
+  } catch (e) {
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+/** DELETE /api/admin/users/:id - 유저 탈퇴(계정 삭제) */
 adminRouter.delete('/users/:id', async (req, res) => {
   try {
     const id = req.params.id;
@@ -71,14 +109,30 @@ adminRouter.delete('/users/:id', async (req, res) => {
 
 // ========== 주문 내역 ==========
 
-/** GET /api/admin/orders - 주문 목록 (번호, 상품정보, 주문시간, 금액, 성함, 상태) */
+/** GET /api/admin/orders - 주문 목록 (번호, 상품정보, 주문시간, 금액, 성함, 상태). 쿼리: status, from(YYYY-MM-DD), to(YYYY-MM-DD) */
 adminRouter.get('/orders', async (req, res) => {
   try {
     const statusParam = (req.query.status as string)?.toUpperCase();
     const status = statusParam && statusParam !== 'ALL' ? (statusParam as OrderStatus) : undefined;
+    const fromParam = (req.query.from as string)?.trim();
+    const toParam = (req.query.to as string)?.trim();
+
+    const where: { status?: OrderStatus; createdAt?: { gte?: Date; lte?: Date } } = {};
+    if (status) where.status = status;
+    if (fromParam || toParam) {
+      where.createdAt = {};
+      if (fromParam) {
+        const from = new Date(fromParam);
+        if (!Number.isNaN(from.getTime())) where.createdAt.gte = new Date(from.setHours(0, 0, 0, 0));
+      }
+      if (toParam) {
+        const to = new Date(toParam);
+        if (!Number.isNaN(to.getTime())) where.createdAt.lte = new Date(to.setHours(23, 59, 59, 999));
+      }
+    }
 
     const orders = await prisma.order.findMany({
-      where: status ? { status } : {},
+      where,
       orderBy: { createdAt: 'desc' },
       include: {
         user: { select: { name: true } },
@@ -117,11 +171,12 @@ adminRouter.get('/orders', async (req, res) => {
 adminRouter.patch('/orders/:id', async (req, res) => {
   try {
     const id = req.params.id;
-    const { status } = req.body as { status?: OrderStatus };
-    const valid = Object.values(OrderStatus).includes(status);
+    const { status: rawStatus } = req.body as { status?: OrderStatus };
+    const valid = rawStatus != null && Object.values(OrderStatus).includes(rawStatus);
     if (!valid) {
       return res.status(400).json({ error: 'invalid status' });
     }
+    const status = rawStatus as OrderStatus;
 
     const existing = await prisma.order.findUnique({
       where: { id },
@@ -152,7 +207,10 @@ adminRouter.patch('/orders/:id', async (req, res) => {
       await prisma.$transaction(async (tx) => {
         await tx.order.update({
           where: { id },
-          data: { status: OrderStatus.CANCELED },
+          data: {
+            status: OrderStatus.CANCELED,
+            ...(existing.paymentStatus === 'PAID' ? { paymentStatus: PaymentStatus.REFUNDED } : {}),
+          },
         });
         if (pointsToRefund > 0 && existing.userId) {
           const user = await tx.user.findUnique({
@@ -185,6 +243,7 @@ adminRouter.patch('/orders/:id', async (req, res) => {
     if (!order) {
       return res.status(404).json({ error: 'order not found' });
     }
+    notifyOrderStatusChanged(order.id, order.orderNo, status).catch(() => {});
     res.json({
       id: order.id,
       orderNo: order.orderNo,

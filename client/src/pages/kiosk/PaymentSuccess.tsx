@@ -41,7 +41,7 @@ export function PaymentSuccess() {
 
   if (error) {
     return (
-      <div className="flex flex-col min-h-[100dvh] items-center justify-center p-6 text-kiosk-text">
+      <div className="flex flex-col min-h-[100dvh] items-center justify-center p-4 sm:p-6 text-kiosk-text">
         <p className="text-kiosk-error mb-4" role="alert">{error}</p>
         <button
           type="button"
@@ -55,7 +55,7 @@ export function PaymentSuccess() {
   }
 
   return (
-    <div className="flex flex-col min-h-[100dvh] items-center justify-center p-6 text-kiosk-text">
+    <div className="flex flex-col min-h-[100dvh] items-center justify-center p-4 sm:p-6 text-kiosk-text">
       <p>결제 확인 중…</p>
     </div>
   );

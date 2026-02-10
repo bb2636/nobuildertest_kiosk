@@ -9,7 +9,7 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import { prisma } from '../db.js';
 import { requireAuth, optionalAuth, type RequestWithAuth } from '../middleware/auth.js';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, PaymentStatus } from '@prisma/client';
 import { cancelTossPayment, POINT_RATE } from '../services/tossCancel.js';
 
 const SALT_ROUNDS = 10;
@@ -20,7 +20,7 @@ function trim(s: unknown): string {
 
 export const userRouter = Router();
 
-/** GET /api/user/orders/:id - 단일 주문 조회 (비로그인 가능: 비회원 주문은 orderId만 알면 조회) */
+/** GET /api/user/orders/:id - 단일 주문 조회 (비로그인 가능). 완료/취소 24h 지난 주문도 조회 가능(404 없음), 푸시 구독만 정리 */
 userRouter.get('/orders/:id', optionalAuth, async (req: RequestWithAuth, res) => {
   try {
     const userId = req.userId ?? null;
@@ -28,6 +28,9 @@ userRouter.get('/orders/:id', optionalAuth, async (req: RequestWithAuth, res) =>
     if (!orderId) {
       return res.status(400).json({ error: 'order id required' });
     }
+
+    const { cleanupExpiredPushSubscriptions } = await import('../services/pushService.js');
+    await cleanupExpiredPushSubscriptions();
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
@@ -56,6 +59,7 @@ userRouter.get('/orders/:id', optionalAuth, async (req: RequestWithAuth, res) =>
       status: order.status,
       totalAmount: order.totalAmount,
       createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
       items: order.items.map((i) => ({
         id: i.id,
         productName: i.product.name,
@@ -107,10 +111,13 @@ const statusMap: Record<string, OrderStatus | undefined> = {
   PENDING: OrderStatus.WAITING,
 };
 
-/** GET /api/user/orders?status=...&from=YYYY-MM-DD&to=YYYY-MM-DD - 주문 내역 (상품명, 총 결제 금액, 상태·기간 필터) */
+/** GET /api/user/orders?status=...&from=YYYY-MM-DD&to=YYYY-MM-DD - 주문 내역. 완료/취소 24h 지난 구독 정리 */
 userRouter.get('/orders', async (req: RequestWithAuth, res) => {
   try {
     const userId = req.userId!;
+    const { cleanupExpiredPushSubscriptions } = await import('../services/pushService.js');
+    await cleanupExpiredPushSubscriptions();
+
     const statusParam = (req.query.status as string)?.toUpperCase() ?? 'ALL';
     const status = statusMap[statusParam] ?? undefined;
     const fromParam = (req.query.from as string)?.trim();
@@ -151,6 +158,7 @@ userRouter.get('/orders', async (req: RequestWithAuth, res) => {
       status: o.status,
       totalAmount: o.totalAmount,
       createdAt: o.createdAt,
+      updatedAt: o.updatedAt,
       items: o.items.map((i) => ({
         id: i.id,
         productName: i.product.name,
@@ -215,7 +223,10 @@ userRouter.post('/orders/:id/cancel', async (req: RequestWithAuth, res) => {
     await prisma.$transaction(async (tx) => {
       await tx.order.update({
         where: { id: orderId },
-        data: { status: OrderStatus.CANCELED },
+        data: {
+          status: OrderStatus.CANCELED,
+          ...(existing.paymentStatus === 'PAID' ? { paymentStatus: PaymentStatus.REFUNDED } : {}),
+        },
       });
       if (pointsToRefund > 0 && existing.userId) {
         const user = await tx.user.findUnique({

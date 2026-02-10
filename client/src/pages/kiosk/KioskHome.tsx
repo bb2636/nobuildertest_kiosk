@@ -1,33 +1,43 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingCart, User } from 'lucide-react';
-import { api, type MenuItem } from '../../api/client';
 import { useKioskCart } from '../../contexts/KioskCartContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useMenuCache } from '../../contexts/MenuCacheContext';
 
 export function KioskHome() {
   const { user } = useAuth();
   const { lines, clear } = useKioskCart();
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
-  const [items, setItems] = useState<MenuItem[]>([]);
+  const { categories, items, isInitialized, revalidate } = useMenuCache();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const didRevalidateRef = useRef(false);
 
   const cartCount = lines.reduce((sum, l) => sum + l.quantity, 0);
   const totalPrice = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
 
+  /** 홈 진입 시 배경 재검증 1회 (변경된 경우에만 캐시 갱신, 화면은 캐시로 즉시 표시) */
   useEffect(() => {
-    api.categories.list().then(setCategories);
-  }, []);
-
-  useEffect(() => {
-    api.menu.list(selectedCategoryId ?? undefined).then(setItems);
-  }, [selectedCategoryId]);
+    if (!isInitialized || didRevalidateRef.current) return;
+    didRevalidateRef.current = true;
+    revalidate();
+    return () => {
+      didRevalidateRef.current = false;
+    };
+  }, [isInitialized, revalidate]);
 
   const displayItems = items.filter((i) => !selectedCategoryId || i.categoryId === selectedCategoryId);
 
+  if (!isInitialized) {
+    return (
+      <div className="flex flex-col min-h-[100dvh] bg-[#f5f5f5] items-center justify-center">
+        <p className="text-kiosk-textSecondary">메뉴를 불러오는 중…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-[100dvh] bg-[#f5f5f5]">
-      <header className="flex items-center justify-between px-4 py-3 bg-white border-b border-kiosk-border">
+      <header className="flex items-center justify-between px-4 md:px-6 py-3 bg-white border-b border-kiosk-border">
         <Link to="/" className="text-lg font-semibold text-kiosk-text">
           FELN
         </Link>
@@ -55,7 +65,7 @@ export function KioskHome() {
         </div>
       </header>
 
-      <div className="flex gap-0 overflow-x-auto px-4 py-3 bg-white border-b border-kiosk-border">
+      <div className="flex gap-0 overflow-x-auto md:overflow-x-visible md:flex-wrap md:justify-center px-4 md:px-6 py-3 bg-white border-b border-kiosk-border md:gap-2">
         <button
           type="button"
           onClick={() => setSelectedCategoryId(null)}
@@ -67,7 +77,9 @@ export function KioskHome() {
         >
           전체
         </button>
-        {categories.map((c) => (
+        {[...categories]
+          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+          .map((c) => (
           <button
             key={c.id}
             type="button"
@@ -80,11 +92,11 @@ export function KioskHome() {
           >
             {c.name}
           </button>
-        ))}
+          ))}
       </div>
 
-      <main className="flex-1 overflow-auto p-4">
-        <div className="grid grid-cols-3 gap-3">
+      <main className="flex-1 overflow-auto p-4 md:p-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
           {displayItems.map((item) => (
             <Link
               key={item.id}
@@ -128,7 +140,7 @@ export function KioskHome() {
         </div>
       </main>
 
-      <footer className="sticky bottom-0 bg-white border-t border-kiosk-border p-4 safe-area-pb">
+      <footer className="sticky bottom-0 bg-white border-t border-kiosk-border p-4 md:p-6 safe-area-pb">
         <div className="flex items-center justify-between mb-2 text-sm text-kiosk-textSecondary">
           <span>
             장바구니 <span className="font-semibold text-kiosk-primary">{cartCount}</span>

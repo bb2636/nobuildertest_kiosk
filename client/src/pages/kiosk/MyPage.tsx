@@ -41,9 +41,9 @@ export function MyPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#363636] p-4 flex flex-col">
-      <div className="flex flex-col flex-1 max-w-[430px] mx-auto w-full rounded-2xl bg-white shadow-lg overflow-hidden">
-        <header className="flex items-center justify-between px-4 py-3 border-b border-[#eeeeee]">
+    <div className="min-h-[100dvh] bg-[#363636] p-3 sm:p-4 md:p-6 flex flex-col">
+      <div className="flex flex-col flex-1 w-full max-w-[430px] sm:max-w-[400px] md:max-w-lg mx-auto min-w-0 rounded-2xl bg-white shadow-lg overflow-hidden">
+        <header className="flex items-center justify-between px-3 sm:px-4 py-3 border-b border-[#eeeeee] shrink-0">
           <button
             type="button"
             onClick={() => navigate(-1)}
@@ -56,26 +56,26 @@ export function MyPage() {
           <span className="p-2" aria-hidden><Bell className="h-5 w-5 text-[#333333]" /></span>
         </header>
 
-        <main className="flex-1 overflow-auto p-4">
-          <p className="text-base font-medium text-[#333333] mb-6">
+        <main className="flex-1 overflow-auto p-3 sm:p-4 min-h-0">
+          <p className="text-base font-medium text-[#333333] mb-4 sm:mb-6">
             {user.name}님 환영합니다!
           </p>
 
-          <div className="grid grid-cols-3 gap-3 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-6 sm:mb-8">
             {MENU_ITEMS.map(({ to, icon: Icon, label }) => (
               <Link
                 key={to}
                 to={to}
-                className="flex flex-col items-center justify-center gap-2 rounded-xl bg-white border border-[#eeeeee] py-6 px-4 shadow-sm hover:bg-[#fafafa] transition-colors"
+                className="flex flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-xl bg-white border border-[#eeeeee] py-4 sm:py-6 px-3 sm:px-4 shadow-sm hover:bg-[#fafafa] transition-colors min-h-[72px] sm:min-h-0"
               >
                 <Icon className="h-6 w-6 text-[#FFC107]" />
-                <span className="text-sm font-medium text-[#333333]">{label}</span>
+                <span className="text-xs sm:text-sm font-medium text-[#333333] text-center">{label}</span>
               </Link>
             ))}
           </div>
 
           {pointInfo != null && (
-            <div className="rounded-xl bg-[#fafafa] border border-[#eeeeee] p-4 mb-6">
+            <div className="rounded-xl bg-[#fafafa] border border-[#eeeeee] p-3 sm:p-4 mb-4 sm:mb-6">
               <h2 className="text-sm font-medium text-[#717171] mb-2">보유 포인트</h2>
               <p className="text-lg font-semibold text-[#333333]">{pointInfo.point.toLocaleString()}P</p>
               <p className="text-xs text-[#717171] mt-1">마일리지 {pointInfo.mileage.toLocaleString()}</p>

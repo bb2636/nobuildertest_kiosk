@@ -20,6 +20,7 @@ function toMenuItemShape(p: {
   description: string | null;
   basePrice: number;
   imageUrl: string | null;
+  calories: string | null;
   isAvailable: boolean;
   isBest: boolean;
   defaultShotCount: number | null;
@@ -48,6 +49,7 @@ function toMenuItemShape(p: {
     defaultShotCount: p.defaultShotCount ?? null,
     sortOrder: p.sortOrder,
     category: p.category,
+    calories: p.calories ?? null,
     images: p.imageUrl ? [{ id: p.id, url: p.imageUrl, sortOrder: 0 }] : [],
     options: (p.productOptions ?? []).map((po) => ({
       id: po.option.id,
@@ -136,8 +138,9 @@ menuRouter.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
     if (typeof basePrice === 'number') data.basePrice = basePrice;
     if (typeof isSoldOut === 'boolean') data.isAvailable = !isSoldOut;
     if (sortOrder !== undefined) data.sortOrder = Number(sortOrder);
+    const id = typeof req.params.id === 'string' ? req.params.id : (req.params.id as string[])?.[0] ?? '';
     const updated = await prisma.product.update({
-      where: { id: req.params.id },
+      where: { id },
       data,
     });
     res.json(updated);
@@ -152,7 +155,8 @@ menuRouter.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
 /** DELETE /api/menu/:id (관리자 전용) */
 menuRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
-    await prisma.product.delete({ where: { id: req.params.id } });
+    const id = typeof req.params.id === 'string' ? req.params.id : (req.params.id as string[])?.[0] ?? '';
+    await prisma.product.delete({ where: { id } });
     res.status(204).send();
   } catch (e: unknown) {
     if (e && typeof e === 'object' && 'code' in e && (e as { code: string }).code === 'P2025') {

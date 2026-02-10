@@ -42,7 +42,7 @@ const POINT_RATE = 0.1; // 결제 금액의 10% 포인트 적립
 export async function createOrderWithItems(dto: CreateOrderDto): Promise<CreateOrderResult> {
   const { totalPrice, items, userId, orderType = OrderType.DINE_IN, paymentMethod, paymentStatus = 'PAID', usePoint = 0 } = dto;
   const usePointAmount = Number(usePoint) || 0;
-  const payAmount = totalPrice - usePointAmount;
+  // payAmount는 검증 후 서버 계산 합계(computedTotal) 기준으로 설정됨
 
   if (items.length === 0) {
     throw new Error('ORDER_ITEMS_EMPTY');
@@ -117,13 +117,15 @@ export async function createOrderWithItems(dto: CreateOrderDto): Promise<CreateO
     }
 
     const computedTotal = orderLines.reduce((sum, line) => sum + line.lineTotalAmount, 0);
-    if (computedTotal !== totalPrice) {
+    // 클라이언트 합계와 1원 이내 오차 허용 (옵션 가격/반올림 차이)
+    if (Math.abs(computedTotal - totalPrice) > 1) {
       throw new Error('ORDER_TOTAL_MISMATCH');
     }
+    const orderTotal = computedTotal;
 
     if (usePointAmount > 0) {
       if (!userId) throw new Error('ORDER_USE_POINT_REQUIRES_LOGIN');
-      if (usePointAmount > totalPrice) throw new Error('ORDER_USE_POINT_EXCEEDS_TOTAL');
+      if (usePointAmount > orderTotal) throw new Error('ORDER_USE_POINT_EXCEEDS_TOTAL');
       const user = await tx.user.findUnique({ where: { id: userId }, select: { point: true } });
       if (!user || user.point < usePointAmount) throw new Error('ORDER_INSUFFICIENT_POINT');
       await tx.user.update({
@@ -132,6 +134,7 @@ export async function createOrderWithItems(dto: CreateOrderDto): Promise<CreateO
       });
     }
 
+    const payAmount = orderTotal - usePointAmount;
     const order = await tx.order.create({
       data: {
         orderNo,

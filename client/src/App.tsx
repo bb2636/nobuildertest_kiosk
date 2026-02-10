@@ -25,6 +25,7 @@ import { OrderStatusView } from './pages/kiosk/OrderStatusView';
 import { AdminLogin } from './pages/admin/AdminLogin';
 import { AdminOrders } from './pages/admin/AdminOrders';
 import { AdminMenu } from './pages/admin/AdminMenu';
+import { AdminUsers } from './pages/admin/AdminUsers';
 import { AdminCategories } from './pages/admin/AdminCategories';
 import { AdminTerms } from './pages/admin/AdminTerms';
 import { AdminPrivacy } from './pages/admin/AdminPrivacy';
@@ -71,6 +72,7 @@ function App() {
         <Route path="login" element={<AdminLogin />} />
         <Route element={<AdminLayout />}>
           <Route index element={<Navigate to="orders" replace />} />
+          <Route path="users" element={<AdminUsers />} />
           <Route path="orders" element={<AdminOrders />} />
           <Route path="menu" element={<AdminMenu />} />
           <Route path="categories" element={<AdminCategories />} />

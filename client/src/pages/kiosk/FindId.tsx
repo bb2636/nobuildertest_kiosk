@@ -36,8 +36,8 @@ export function FindId() {
   };
 
   return (
-    <div className="kiosk-view min-h-[100dvh] flex flex-col items-center justify-center p-6 bg-kiosk-bg">
-      <Card theme="kiosk" className="w-full max-w-sm p-6">
+    <div className="kiosk-view min-h-[100dvh] flex flex-col items-center justify-center p-4 sm:p-6 bg-kiosk-bg">
+      <Card theme="kiosk" className="w-full max-w-sm p-4 sm:p-6">
         <h1 className="text-xl font-semibold text-center text-kiosk-text mb-6">아이디 찾기</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input

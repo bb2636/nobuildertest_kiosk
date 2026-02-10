@@ -214,7 +214,8 @@ model Order {
   totalAmount     Int           // 총 주문 금액 (원)
   tossPaymentKey  String?       // 토스 결제 승인 시 발급된 paymentKey (취소 API용)
 
-  items OrderItem[]
+  items            OrderItem[]
+  pushSubscriptions OrderPushSubscription[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -223,6 +224,17 @@ model Order {
   @@index([status])
   @@index([createdAt])
   @@index([updatedAt])
+}
+
+// 주문별 웹 푸시 구독 (주문 상태 변경 시 알림 발송용)
+model OrderPushSubscription {
+  id           String   @id @default(cuid())
+  orderId      String
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  subscription String   @db.Text // JSON: { endpoint, keys: { p256dh, auth } }
+  createdAt    DateTime @default(now())
+
+  @@index([orderId])
 }
 
 model OrderItem {

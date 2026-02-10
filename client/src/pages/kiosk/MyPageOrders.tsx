@@ -237,6 +237,9 @@ export function MyPageOrders() {
                   <p className="font-medium text-kiosk-text text-sm truncate">
                     {firstItemName(order)}
                     {hasMoreItems(order) ? ' 외' : ''}
+                    {order.status === 'CANCELED' && (
+                      <span className="text-kiosk-error ml-1">취소됨</span>
+                    )}
                   </p>
                   <p className="text-xs text-kiosk-textSecondary mt-0.5">
                     {(() => {
@@ -260,7 +263,13 @@ export function MyPageOrders() {
                     </button>
                   )}
                 </div>
-                <p className="shrink-0 font-semibold text-kiosk-text text-sm">
+                <p
+                  className={`shrink-0 font-semibold text-sm ${
+                    order.status === 'CANCELED'
+                      ? 'text-kiosk-textSecondary line-through'
+                      : 'text-kiosk-text'
+                  }`}
+                >
                   {order.totalAmount.toLocaleString()}원
                 </p>
               </li>

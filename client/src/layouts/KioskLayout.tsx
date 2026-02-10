@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { MenuCacheProvider } from '../contexts/MenuCacheContext';
 
 const IDLE_SEC = 60;
 const MESSAGE_COUNTDOWN_SEC = 5;
@@ -78,11 +79,12 @@ export function KioskLayout() {
   }, [location.pathname, resetIdleTimer, startIdleTimer]);
 
   return (
-    <div className="kiosk-view bg-kiosk-bg text-kiosk-text">
-      <Outlet />
+    <MenuCacheProvider>
+      <div className="kiosk-view bg-kiosk-bg text-kiosk-text min-h-[100dvh] md:min-h-[calc(100dvh-2rem)]">
+        <Outlet />
       {showIdleMessage && (
         <div
-          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/60 p-6 text-center"
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/60 p-4 sm:p-6 text-center"
           role="dialog"
           aria-modal="true"
           aria-labelledby="idle-title"
@@ -107,6 +109,7 @@ export function KioskLayout() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </MenuCacheProvider>
   );
 }

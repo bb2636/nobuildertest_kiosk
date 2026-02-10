@@ -26,6 +26,7 @@ export function AdminTerms() {
   }, []);
 
   const handleSave = async () => {
+    if (!window.confirm('서비스 이용약관을 저장하시겠습니까?')) return;
     setSaving(true);
     try {
       const data = await api.admin.terms.update(content);
