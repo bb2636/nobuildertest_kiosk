@@ -86,13 +86,17 @@ export function KioskHome() {
       <main className="flex-1 overflow-auto p-4">
         <div className="grid grid-cols-3 gap-3">
           {displayItems.map((item) => (
-            <Link key={item.id} to={`/menu/${item.id}`} className="block">
+            <Link
+              key={item.id}
+              to={`/menu/${item.id}`}
+              className={`block ${item.isSoldOut ? 'opacity-75' : ''}`}
+            >
               <div className="relative aspect-square bg-white rounded-md overflow-hidden">
                 {item.images[0]?.url ? (
                   <img
                     src={item.images[0].url}
                     alt=""
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full object-cover ${item.isSoldOut ? 'grayscale opacity-70' : ''}`}
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
                       (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
@@ -104,13 +108,20 @@ export function KioskHome() {
                 >
                   이미지 없음
                 </span>
+                {item.isSoldOut && (
+                  <span className="absolute top-0 left-0 bg-kiosk-textSecondary text-white text-[10px] font-bold py-1 px-2 rounded-br">
+                    품절
+                  </span>
+                )}
                 {item.isBest && (
                   <span className="absolute top-0 right-0 bg-kiosk-primary text-kiosk-text text-[10px] font-bold py-1 px-2 rounded-bl">
                     Best
                   </span>
                 )}
               </div>
-              <p className="font-medium text-kiosk-text text-sm truncate mt-1">{item.name}</p>
+              <p className={`font-medium text-sm truncate mt-1 ${item.isSoldOut ? 'text-kiosk-textSecondary' : 'text-kiosk-text'}`}>
+                {item.name}
+              </p>
               <p className="text-xs text-kiosk-textSecondary">{item.basePrice.toLocaleString()}원</p>
             </Link>
           ))}
