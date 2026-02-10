@@ -23,10 +23,21 @@ import { AdminLogin } from './pages/admin/AdminLogin';
 import { AdminOrders } from './pages/admin/AdminOrders';
 import { AdminMenu } from './pages/admin/AdminMenu';
 import { AdminCategories } from './pages/admin/AdminCategories';
+import {
+  NotFoundPage,
+  ForbiddenPage,
+  ServerErrorPage,
+  UnauthorizedPage,
+} from './pages/errors';
 
 function App() {
   return (
     <Routes>
+      {/* 예외 처리 페이지 (공통 레이아웃 없음) */}
+      <Route path="/404" element={<NotFoundPage />} />
+      <Route path="/403" element={<ForbiddenPage />} />
+      <Route path="/500" element={<ServerErrorPage />} />
+      <Route path="/401" element={<UnauthorizedPage />} />
       {/* 고객 로그인/회원 (레이아웃 없음) */}
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
@@ -57,7 +68,7 @@ function App() {
           <Route path="categories" element={<AdminCategories />} />
         </Route>
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

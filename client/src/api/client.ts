@@ -20,10 +20,21 @@ function getAuthToken(): string | null {
 }
 
 const AUTH_SESSION_EXPIRED = 'auth:sessionExpired';
+const NETWORK_ERROR_EVENT = 'app:network-error';
 
 function clearAuth(): void {
   localStorage.removeItem(AUTH_STORAGE_KEY);
   window.dispatchEvent(new CustomEvent(AUTH_SESSION_EXPIRED));
+}
+
+function isNetworkError(e: unknown): boolean {
+  if (e instanceof TypeError && e.message === 'Failed to fetch') return true;
+  if (e instanceof Error && /network|fetch|offline/i.test(e.message)) return true;
+  return false;
+}
+
+function dispatchNetworkError(): void {
+  window.dispatchEvent(new CustomEvent(NETWORK_ERROR_EVENT));
 }
 
 /** Refresh 토큰으로 Access 재발급 후 저장 (로테이션으로 refreshToken도 갱신됨) */
@@ -54,34 +65,39 @@ async function request<T>(
   const token = getAuthToken();
   if (token) (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(url, { ...init, headers });
+  try {
+    const res = await fetch(url, { ...init, headers });
 
-  if (res.status === 401) {
-    const newToken = await refreshAndSave();
-    if (newToken) {
-      (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
-      const retryRes = await fetch(url, { ...init, headers });
-      if (retryRes.status === 401) {
-        clearAuth();
-        throw new Error('unauthorized');
+    if (res.status === 401) {
+      const newToken = await refreshAndSave();
+      if (newToken) {
+        (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
+        const retryRes = await fetch(url, { ...init, headers });
+        if (retryRes.status === 401) {
+          clearAuth();
+          throw new Error('unauthorized');
+        }
+        if (!retryRes.ok) {
+          const err = await retryRes.json().catch(() => ({ error: retryRes.statusText }));
+          throw new Error((err as { error?: string }).error ?? 'Request failed');
+        }
+        if (retryRes.status === 204) return undefined as T;
+        return retryRes.json();
       }
-      if (!retryRes.ok) {
-        const err = await retryRes.json().catch(() => ({ error: retryRes.statusText }));
-        throw new Error((err as { error?: string }).error ?? 'Request failed');
-      }
-      if (retryRes.status === 204) return undefined as T;
-      return retryRes.json();
+      clearAuth();
+      throw new Error('unauthorized');
     }
-    clearAuth();
-    throw new Error('unauthorized');
-  }
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error((err as { error?: string }).error ?? 'Request failed');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error((err as { error?: string }).error ?? 'Request failed');
+    }
+    if (res.status === 204) return undefined as T;
+    return res.json();
+  } catch (e) {
+    if (isNetworkError(e)) dispatchNetworkError();
+    throw e;
   }
-  if (res.status === 204) return undefined as T;
-  return res.json();
 }
 
 export const api = {
