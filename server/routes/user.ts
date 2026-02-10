@@ -8,7 +8,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import { prisma } from '../db.js';
-import { requireAuth, type RequestWithAuth } from '../middleware/auth.js';
+import { requireAuth, optionalAuth, type RequestWithAuth } from '../middleware/auth.js';
 import { OrderStatus } from '@prisma/client';
 
 const SALT_ROUNDS = 10;
@@ -18,6 +18,55 @@ function trim(s: unknown): string {
 }
 
 export const userRouter = Router();
+
+/** GET /api/user/orders/:id - 단일 주문 조회 (비로그인 가능: 비회원 주문은 orderId만 알면 조회) */
+userRouter.get('/orders/:id', optionalAuth, async (req: RequestWithAuth, res) => {
+  try {
+    const userId = req.userId ?? null;
+    const orderId = (req.params.id as string)?.trim();
+    if (!orderId) {
+      return res.status(400).json({ error: 'order id required' });
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: {
+          include: {
+            product: { select: { name: true } },
+            selectedOptions: { include: { option: { select: { name: true } } } },
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'order not found' });
+    }
+    if (order.userId != null && order.userId !== userId) {
+      return res.status(404).json({ error: 'order not found' });
+    }
+
+    res.json({
+      id: order.id,
+      orderNo: order.orderNo,
+      orderNumber: order.orderNumber,
+      orderType: order.orderType,
+      status: order.status,
+      totalAmount: order.totalAmount,
+      createdAt: order.createdAt,
+      items: order.items.map((i) => ({
+        id: i.id,
+        productName: i.product.name,
+        quantity: i.quantity,
+        lineTotalAmount: i.lineTotalAmount,
+        optionNames: i.selectedOptions.map((so) => so.option.name),
+      })),
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'failed' });
+  }
+});
 
 userRouter.use(requireAuth);
 
@@ -86,7 +135,7 @@ userRouter.get('/orders', async (req: RequestWithAuth, res) => {
       include: {
         items: {
           include: {
-            product: { select: { name: true } },
+            product: { select: { name: true, imageUrl: true } },
             selectedOptions: { include: { option: { select: { name: true } } } },
           },
         },
@@ -104,6 +153,7 @@ userRouter.get('/orders', async (req: RequestWithAuth, res) => {
       items: o.items.map((i) => ({
         id: i.id,
         productName: i.product.name,
+        imageUrl: i.product.imageUrl ?? undefined,
         quantity: i.quantity,
         lineTotalAmount: i.lineTotalAmount,
         optionNames: i.selectedOptions.map((so) => so.option.name),

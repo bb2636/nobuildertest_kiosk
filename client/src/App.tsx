@@ -19,6 +19,7 @@ import { MyPagePoint } from './pages/kiosk/MyPagePoint';
 import { MyPageAccount } from './pages/kiosk/MyPageAccount';
 import { MyPageSettings } from './pages/kiosk/MyPageSettings';
 import { MyPageTerms } from './pages/kiosk/MyPageTerms';
+import { OrderStatusView } from './pages/kiosk/OrderStatusView';
 import { AdminLogin } from './pages/admin/AdminLogin';
 import { AdminOrders } from './pages/admin/AdminOrders';
 import { AdminMenu } from './pages/admin/AdminMenu';
@@ -52,6 +53,7 @@ function App() {
         <Route path="payment/success" element={<PaymentSuccess />} />
         <Route path="order-done" element={<OrderDone />} />
         <Route path="mypage" element={<MyPage />} />
+        <Route path="mypage/orders/:orderId" element={<OrderStatusView />} />
         <Route path="mypage/orders" element={<MyPageOrders />} />
         <Route path="mypage/point" element={<MyPagePoint />} />
         <Route path="mypage/account" element={<MyPageAccount />} />

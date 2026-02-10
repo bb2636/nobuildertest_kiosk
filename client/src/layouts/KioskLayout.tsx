@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 const IDLE_SEC = 60;
@@ -21,7 +21,7 @@ export function KioskLayout() {
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const resetIdleTimer = () => {
+  const resetIdleTimer = useCallback(() => {
     if (idleTimerRef.current) {
       clearTimeout(idleTimerRef.current);
       idleTimerRef.current = null;
@@ -32,9 +32,9 @@ export function KioskLayout() {
     }
     setShowIdleMessage(false);
     setCountdown(MESSAGE_COUNTDOWN_SEC);
-  };
+  }, []);
 
-  const startIdleTimer = () => {
+  const startIdleTimer = useCallback(() => {
     if (isIdleExcludedPath(location.pathname)) return;
     resetIdleTimer();
     idleTimerRef.current = setTimeout(() => {
@@ -56,7 +56,7 @@ export function KioskLayout() {
         });
       }, 1000);
     }, IDLE_SEC * 1000);
-  };
+  }, [location.pathname, navigate, resetIdleTimer]);
 
   useEffect(() => {
     startIdleTimer();
@@ -64,23 +64,18 @@ export function KioskLayout() {
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
       if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
     };
-  }, [location.pathname]);
+  }, [startIdleTimer]);
 
   useEffect(() => {
     if (isIdleExcludedPath(location.pathname)) return;
     const events = ['mousedown', 'touchstart', 'keydown'] as const;
     const handleActivity = () => {
-      if (showIdleMessage) {
-        resetIdleTimer();
-        startIdleTimer();
-      } else {
-        resetIdleTimer();
-        startIdleTimer();
-      }
+      resetIdleTimer();
+      startIdleTimer();
     };
     events.forEach((e) => window.addEventListener(e, handleActivity));
     return () => events.forEach((e) => window.removeEventListener(e, handleActivity));
-  }, [location.pathname, showIdleMessage]);
+  }, [location.pathname, resetIdleTimer, startIdleTimer]);
 
   return (
     <div className="kiosk-view bg-kiosk-bg text-kiosk-text">

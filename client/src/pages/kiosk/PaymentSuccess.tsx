@@ -28,6 +28,7 @@ export function PaymentSuccess() {
         if (cancelled) return;
         clear();
         const params = new URLSearchParams({ orderNo: res.orderNo });
+        if (res.orderId) params.set('orderId', res.orderId);
         if (res.pointsEarned != null) params.set('points', String(res.pointsEarned));
         navigate(`/order-done?${params.toString()}`, { replace: true });
       } catch (e) {

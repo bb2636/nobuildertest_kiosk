@@ -149,7 +149,7 @@ export const api = {
   payments: {
     /** 토스 결제 승인 (성공 URL에서 호출) */
     confirm: (body: { paymentKey: string; orderId: string; amount: number }) =>
-      request<{ orderNo: string; pointsEarned?: number }>('/payments/confirm', {
+      request<{ orderNo: string; orderId?: string; pointsEarned?: number }>('/payments/confirm', {
         method: 'POST',
         body: JSON.stringify(body),
       }),
@@ -197,6 +197,7 @@ export const api = {
           ? { params: Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')) as Record<string, string> }
           : undefined
       ),
+    getOrder: (id: string) => request<UserOrderItem>(`/user/orders/${id}`),
     update: (body: { email?: string; currentPassword?: string; newPassword?: string }) =>
       request<{ success: boolean }>('/user/update', {
         method: 'PATCH',
@@ -304,7 +305,7 @@ export type UserOrderItem = {
   orderType: 'DINE_IN' | 'TAKE_OUT';
   totalAmount: number;
   createdAt: string;
-  items: { id: string; productName: string; quantity: number; lineTotalAmount: number; optionNames?: string[] }[];
+  items: { id: string; productName: string; imageUrl?: string; quantity: number; lineTotalAmount: number; optionNames?: string[] }[];
 };
 
 /** GET /api/admin/orders 응답 항목 (items[].productName) */

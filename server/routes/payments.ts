@@ -79,7 +79,11 @@ paymentsRouter.post('/confirm', async (req, res) => {
       }
     });
 
-    res.status(200).json({ orderNo: order.orderNo, pointsEarned: pointsEarned > 0 ? pointsEarned : undefined });
+    res.status(200).json({
+      orderNo: order.orderNo,
+      orderId: order.id,
+      pointsEarned: pointsEarned > 0 ? pointsEarned : undefined,
+    });
   } catch (e) {
     console.error('[payments/confirm]', e);
     res.status(500).json({ error: 'payment_confirm_failed' });

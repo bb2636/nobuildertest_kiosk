@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Lottie from 'lottie-react';
 import { Button } from '../../components/ui/Button';
+import { useAuth } from '../../contexts/AuthContext';
 
 const AUTO_REDIRECT_SEC = 5;
 
 export function OrderDone() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const orderNo = searchParams.get('orderNo') ?? '';
+  const orderId = searchParams.get('orderId') ?? '';
   const pointsEarned = searchParams.get('points') ?? '';
   const [animationData, setAnimationData] = useState<object | null>(null);
   const [countdown, setCountdown] = useState(AUTO_REDIRECT_SEC);
@@ -53,10 +56,17 @@ export function OrderDone() {
         </p>
       )}
       <p className="text-sm text-kiosk-textSecondary mb-4">준비가 완료되면 알려드리겠습니다.</p>
-      <p className="text-sm text-kiosk-textSecondary mb-6">
+      <p className="text-sm text-kiosk-textSecondary mb-4">
         <span className="font-medium text-kiosk-text">{countdown}</span>초 뒤 자동으로 홈으로 이동합니다.
       </p>
       <div className="flex flex-col gap-3 w-full max-w-xs">
+        {orderId && user && (
+          <Link to={`/mypage/orders/${orderId}`} className="block">
+            <Button theme="kiosk" variant="secondary" fullWidth>
+              주문 상태 보기
+            </Button>
+          </Link>
+        )}
         <Link to="/" className="block">
           <Button theme="kiosk" fullWidth>
             확인

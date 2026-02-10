@@ -3,8 +3,6 @@ import { ErrorPage } from './ErrorPage';
 
 const btnPrimary =
   'inline-flex items-center justify-center gap-2 rounded-lg font-medium px-4 py-2.5 text-sm w-full bg-kiosk-primary text-kiosk-text hover:bg-kiosk-primaryHover active:opacity-90 transition-colors';
-const btnSecondary =
-  'inline-flex items-center justify-center gap-2 rounded-lg font-medium px-4 py-2.5 text-sm w-full bg-white border border-kiosk-border text-kiosk-text hover:bg-kiosk-surface transition-colors';
 
 /** 404 - 잘못된 경로 */
 export function NotFoundPage() {
