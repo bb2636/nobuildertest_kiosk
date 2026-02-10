@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
 
-export function MyPageTerms() {
+export function MyPagePrivacy() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [content, setContent] = useState('');
@@ -15,7 +15,7 @@ export function MyPageTerms() {
       return;
     }
     api.site
-      .terms()
+      .privacy()
       .then((data) => setContent(data.content ?? ''))
       .catch(() => setContent(''))
       .finally(() => setLoading(false));
@@ -29,7 +29,7 @@ export function MyPageTerms() {
         <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 text-kiosk-text">
           &lt;
         </button>
-        <h1 className="text-lg font-semibold text-kiosk-text">서비스 이용약관</h1>
+        <h1 className="text-lg font-semibold text-kiosk-text">개인정보 처리방침</h1>
         <span className="w-8" />
       </header>
       <main className="flex-1 overflow-auto p-4">

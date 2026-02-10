@@ -73,17 +73,18 @@ step4/
 │   ├── src/
 │   │   ├── api/            # API 클라이언트 (client.ts), 메뉴보드
 │   │   ├── components/     # ui (Button, Input, Card, Modal, Toggle), admin (AdminGate)
-│   │   ├── contexts/       # AuthContext, KioskCartContext
-│   │   ├── layouts/        # KioskLayout, AdminLayout
+│   │   ├── contexts/       # AuthContext, KioskCartContext, NetworkErrorContext
+│   │   ├── layouts/        # KioskLayout, AdminLayout(좌측 네비)
 │   │   ├── pages/
-│   │   │   ├── kiosk/      # 홈, 메뉴상세, 장바구니, 결제, 로그인/회원가입, 마이페이지
-│   │   │   └── admin/      # 관리자 로그인, 주문/메뉴/카테고리 관리
+│   │   │   ├── kiosk/      # 홈, 메뉴상세, 장바구니, 결제, 로그인/회원가입, 마이페이지, 주문상태보기
+│   │   │   ├── admin/      # 로그인, 주문/메뉴/카테고리/약관·개인정보처리방침 관리
+│   │   │   └── errors/     # 404, 403, 500, 401 전용 페이지
 │   │   ├── types/
 │   │   └── ...
 │   └── public/
 ├── server/                 # 백엔드 (Express API, Prisma)
 │   ├── prisma/             # schema.prisma, seed (컵/콘 옵션·젤라또 연결 포함)
-│   ├── routes/             # auth, orders, payments, menu, categories, admin, user
+│   ├── routes/             # auth, orders, payments, menu, categories, admin, user, site
 │   ├── middleware/        # auth, requireAdmin
 │   ├── services/           # orderService, menuBoardService
 │   └── repositories/       # orderRepository, menuBoardRepository
@@ -105,16 +106,19 @@ step4/
 | **메뉴** | 메뉴 상세(옵션·원두·온도·샷 등), 장바구니 담기 | **젤라또**: 컵/콘 선택만. **디저트**: 옵션 없음(메뉴만 담기) |
 | **결제** | 식사 방법 **매장/포장** 선택, 토스 포인트(매장 포인트), 결제수단, 포인트 10% 적립·할인 반영 | 주문 시 `orderType` 저장 |
 | **토스 결제** | **카드/토스** 선택 시 → 토스 결제창 오픈, **승인 API 성공 시에만** 주문 PAID·주문 완료 페이지 이동. 현금/모바일/기타는 결제창 없이 즉시 완료 | [docs/TOSS_PAYMENTS.md](docs/TOSS_PAYMENTS.md) |
-| **마이페이지** | 주문내역(매장/포장·상태·**옵션명** 표시), **상태·기간 필터**, 포인트/마일리지, 계정정보, 설정, 약관 | 본인 주문만 조회 |
+| **마이페이지** | 주문내역(매장/포장·상태·**옵션명**·이미지 표시), **상태·기간 필터**, **주문 상태 보기**(접수대기/제조중/픽업대기 폴링), **주문 취소**(**접수대기 상태일 때만** 가능, 그 외 상태는 취소 불가. 토스 결제 시 토스 취소 API 호출 후 포인트 회수), 포인트/마일리지, 계정정보, 설정, **서비스 이용약관**·**개인정보 처리방침**(관리자에서 등록한 내용 조회) | 본인 주문만 조회. 비회원은 주문번호로 단일 주문 조회 가능. 취소는 로그인 회원만 가능 |
+| **기타** | 품절 메뉴 뱃지·흐림 처리, 60초 무활동 시 홈 복귀(결제/주문완료 제외), 전역 네트워크 오류 배너, 404/403/500/401 전용 페이지 | |
 
 ### 백오피스 (관리자 전용)
 
 | 구분 | 기능 | 비고 |
 |------|------|------|
+| **레이아웃** | **좌측 세로 네비게이션** (주문관리, 메뉴관리, 약관관리), 환영 문구, 로그아웃 | 섹션 접기/펼치기 지원 |
 | **인증** | 관리자 로그인 | JWT + role `ADMIN` |
-| **주문 현황** | 주문 목록(매장/포장·**옵션명** 표시), **상태 드롭다운**으로 한 번에 변경 | 접수대기/제조중/픽업대기/완료/취소 선택 |
+| **주문 현황** | 주문 목록(매장/포장·**옵션명** 표시), **상태 드롭다운**으로 변경. **취소** 선택 시 토스 결제 건은 토스 취소 API 호출 후 주문 취소·적립 포인트 회수. 취소 실패 시 에러 메시지 표시 | [docs/TOSS_PAYMENTS.md](docs/TOSS_PAYMENTS.md) |
 | **메뉴 관리** | 메뉴 목록, **메뉴 등록**(카테고리·상품명·영문명·가격·설명·이미지 URL·원재료), 메뉴 삭제, 품절 토글 | 삭제는 주문 이력 있으면 409 |
 | **카테고리** | 카테고리 CRUD | |
+| **약관관리** | **서비스 이용약관**·**개인정보 처리방침** 텍스트 조회/수정, 마지막 업데이트 일자 표시, "업데이트 하기" 저장 | 유저 마이페이지에서 동일 내용 조회 |
 
 ---
 
@@ -127,11 +131,15 @@ step4/
 | 주문 생성 | POST | /api/orders | 선택(Bearer 시 회원 주문·포인트 적립) | body: `totalPrice`, `items`(optionIds 포함), `orderType?`, `paymentMethod?`, `usePoint?` |
 | 결제 | POST | /api/payments/confirm | - | 토스 결제 승인 (paymentKey, orderId, amount) |
 | 마이페이지 | GET | /api/user/me | Bearer JWT | 계정 정보 |
-| 마이페이지 | GET | /api/user/orders | Bearer JWT | 본인 주문 목록. 쿼리: `status`, `from`, `to`(YYYY-MM-DD). 응답 항목에 `optionNames` 포함 |
+| 마이페이지 | GET | /api/user/orders | Bearer JWT | 본인 주문 목록. 쿼리: `status`, `from`, `to`(YYYY-MM-DD). 응답에 `optionNames`, `imageUrl` 포함 |
+| 마이페이지 | GET | /api/user/orders/:id | 선택(Bearer 또는 비로그인) | 단일 주문 조회. 비회원 주문은 orderId만 알면 조회 가능 |
+| 마이페이지 | POST | /api/user/orders/:id/cancel | Bearer JWT | 본인 주문 취소. **접수대기(WAITING) 상태일 때만** 가능, 그 외 상태는 400. 토스 결제 시 토스 취소 API 호출 후 포인트 회수 |
 | 마이페이지 | PATCH | /api/user/update, /api/user/settings | Bearer JWT | 계정·설정 수정 |
-| 관리자 주문 | GET / PATCH | /api/admin/orders, /api/admin/orders/:id | JWT + ADMIN | 주문 목록·상태 변경. 항목별 `optionNames` 포함 |
+| 사이트 콘텐츠 | GET | /api/site/terms, /api/site/privacy | - | 서비스 이용약관·개인정보 처리방침 (공개, 마이페이지 조회용) |
+| 관리자 주문 | GET / PATCH | /api/admin/orders, /api/admin/orders/:id | JWT + ADMIN | 주문 목록·상태 변경. 취소 시 토스 취소 API·포인트 회수. 실패 시 400 + message |
 | 관리자 메뉴 | GET / POST / PATCH / DELETE | /api/admin/products, /api/admin/products/:id | JWT + ADMIN | 메뉴 목록·등록(상세 필드)·수정·삭제 |
 | 관리자 카테고리 | GET / POST / PATCH / DELETE | /api/categories, /api/categories/:id | GET 공개, 나머지 ADMIN | |
+| 관리자 약관 | GET / PUT | /api/admin/terms, /api/admin/privacy | JWT + ADMIN | 약관·개인정보처리방침 조회/수정 (content, updatedAt) |
 | 메뉴·메뉴판 | GET | /api/menu, /api/menu/:id, /api/menu-board | - | 키오스크용 공개 |
 
 상세 스펙은 **http://localhost:3001/api-docs** (Swagger) 참고.

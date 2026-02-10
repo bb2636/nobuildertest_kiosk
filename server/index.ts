@@ -27,6 +27,7 @@ import { menuRouter } from './routes/menu';
 import { ordersRouter } from './routes/orders';
 import { paymentsRouter } from './routes/payments';
 import { userRouter } from './routes/user';
+import { siteRouter } from './routes/site';
 
 const require = createRequire(import.meta.url);
 const swaggerDocument = require('./openapi.json');
@@ -58,6 +59,7 @@ app.use('/api/menu-board', menuBoardRouter);
 app.use('/api/menu', menuRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/payments', paymentsRouter);
+app.use('/api/site', siteRouter);
 
 /** 매칭되지 않은 API 요청 → 404 */
 app.use((_req, res) => {

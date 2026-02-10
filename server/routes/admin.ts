@@ -6,9 +6,10 @@
 
 import { Router } from 'express';
 import { prisma } from '../db.js';
-import { requireAuth, type RequestWithAuth } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { OrderStatus } from '@prisma/client';
+import { cancelTossPayment, POINT_RATE } from '../services/tossCancel.js';
 
 export const adminRouter = Router();
 
@@ -112,7 +113,7 @@ adminRouter.get('/orders', async (req, res) => {
   }
 });
 
-/** PATCH /api/admin/orders/:id - 주문 상태 변경 (주문 확인 등) */
+/** PATCH /api/admin/orders/:id - 주문 상태 변경. 취소 시 토스 결제 취소 API 호출 후 주문·포인트 처리 */
 adminRouter.patch('/orders/:id', async (req, res) => {
   try {
     const id = req.params.id;
@@ -121,14 +122,69 @@ adminRouter.patch('/orders/:id', async (req, res) => {
     if (!valid) {
       return res.status(400).json({ error: 'invalid status' });
     }
-    const order = await prisma.order.update({
+
+    const existing = await prisma.order.findUnique({
       where: { id },
-      data: { status },
+      select: { id: true, tossPaymentKey: true, paymentStatus: true, userId: true, totalAmount: true },
+    });
+    if (!existing) {
+      return res.status(404).json({ error: 'order not found' });
+    }
+
+    if (status === OrderStatus.CANCELED) {
+      if (existing.tossPaymentKey && existing.paymentStatus === 'PAID') {
+        const cancelError = await cancelTossPayment(
+          existing.tossPaymentKey,
+          '관리자 주문 취소'
+        );
+        if (cancelError) {
+          return res.status(400).json({
+            error: 'toss_cancel_failed',
+            message: cancelError,
+          });
+        }
+      }
+
+      const pointsToRefund = existing.paymentStatus === 'PAID' && existing.userId && existing.totalAmount > 0
+        ? Math.floor(existing.totalAmount * POINT_RATE)
+        : 0;
+
+      await prisma.$transaction(async (tx) => {
+        await tx.order.update({
+          where: { id },
+          data: { status: OrderStatus.CANCELED },
+        });
+        if (pointsToRefund > 0 && existing.userId) {
+          const user = await tx.user.findUnique({
+            where: { id: existing.userId },
+            select: { point: true },
+          });
+          if (user && user.point > 0) {
+            const deduct = Math.min(pointsToRefund, user.point);
+            await tx.user.update({
+              where: { id: existing.userId },
+              data: { point: { decrement: deduct } },
+            });
+          }
+        }
+      });
+    } else {
+      await prisma.order.update({
+        where: { id },
+        data: { status },
+      });
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id },
       include: {
         user: { select: { name: true } },
         items: { include: { product: { select: { name: true } } } },
       },
     });
+    if (!order) {
+      return res.status(404).json({ error: 'order not found' });
+    }
     res.json({
       id: order.id,
       orderNo: order.orderNo,
@@ -272,7 +328,10 @@ adminRouter.get('/terms', async (_req, res) => {
     const row = await prisma.siteContent.findUnique({
       where: { key: 'terms' },
     });
-    res.json({ content: row?.content ?? '' });
+    res.json({
+      content: row?.content ?? '',
+      updatedAt: row?.updatedAt?.toISOString() ?? null,
+    });
   } catch (e) {
     res.status(500).json({ error: 'failed' });
   }
@@ -287,7 +346,7 @@ adminRouter.put('/terms', async (req, res) => {
       create: { key: 'terms', content },
       update: { content },
     });
-    res.json({ content: row.content });
+    res.json({ content: row.content, updatedAt: row.updatedAt.toISOString() });
   } catch (e) {
     res.status(500).json({ error: 'failed' });
   }
@@ -299,7 +358,10 @@ adminRouter.get('/privacy', async (_req, res) => {
     const row = await prisma.siteContent.findUnique({
       where: { key: 'privacy' },
     });
-    res.json({ content: row?.content ?? '' });
+    res.json({
+      content: row?.content ?? '',
+      updatedAt: row?.updatedAt?.toISOString() ?? null,
+    });
   } catch (e) {
     res.status(500).json({ error: 'failed' });
   }
@@ -314,7 +376,7 @@ adminRouter.put('/privacy', async (req, res) => {
       create: { key: 'privacy', content },
       update: { content },
     });
-    res.json({ content: row.content });
+    res.json({ content: row.content, updatedAt: row.updatedAt.toISOString() });
   } catch (e) {
     res.status(500).json({ error: 'failed' });
   }

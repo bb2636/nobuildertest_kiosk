@@ -19,6 +19,7 @@ const ORDER_TYPE_LABEL: Record<string, string> = {
 export function AdminOrders() {
   const [orders, setOrders] = useState<AdminOrderListItem[]>([]);
   const [openStatusId, setOpenStatusId] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,16 +37,26 @@ export function AdminOrders() {
   }, []);
 
   const updateStatus = async (id: string, status: string) => {
-    await api.admin.orders.updateStatus(id, status);
-    setOpenStatusId(null);
-    setOrders((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, status } : o))
-    );
+    setStatusError(null);
+    try {
+      await api.admin.orders.updateStatus(id, status);
+      setOpenStatusId(null);
+      setOrders((prev) =>
+        prev.map((o) => (o.id === id ? { ...o, status } : o))
+      );
+    } catch (e) {
+      setStatusError(e instanceof Error ? e.message : '상태 변경에 실패했습니다.');
+    }
   };
 
   return (
     <div>
       <h2 className="text-lg font-semibold mb-4">주문 현황</h2>
+      {statusError && (
+        <p className="text-admin-error text-sm mb-3" role="alert">
+          {statusError}
+        </p>
+      )}
       <div className="space-y-4">
         {orders.map((order) => (
           <Card key={order.id} theme="admin" className="p-4">

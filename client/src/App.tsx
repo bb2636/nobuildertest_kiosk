@@ -18,12 +18,16 @@ import { MyPageOrders } from './pages/kiosk/MyPageOrders';
 import { MyPagePoint } from './pages/kiosk/MyPagePoint';
 import { MyPageAccount } from './pages/kiosk/MyPageAccount';
 import { MyPageSettings } from './pages/kiosk/MyPageSettings';
+import { MyPageTermsList } from './pages/kiosk/MyPageTermsList';
 import { MyPageTerms } from './pages/kiosk/MyPageTerms';
+import { MyPagePrivacy } from './pages/kiosk/MyPagePrivacy';
 import { OrderStatusView } from './pages/kiosk/OrderStatusView';
 import { AdminLogin } from './pages/admin/AdminLogin';
 import { AdminOrders } from './pages/admin/AdminOrders';
 import { AdminMenu } from './pages/admin/AdminMenu';
 import { AdminCategories } from './pages/admin/AdminCategories';
+import { AdminTerms } from './pages/admin/AdminTerms';
+import { AdminPrivacy } from './pages/admin/AdminPrivacy';
 import {
   NotFoundPage,
   ForbiddenPage,
@@ -58,7 +62,9 @@ function App() {
         <Route path="mypage/point" element={<MyPagePoint />} />
         <Route path="mypage/account" element={<MyPageAccount />} />
         <Route path="mypage/settings" element={<MyPageSettings />} />
+        <Route path="mypage/terms-list" element={<MyPageTermsList />} />
         <Route path="mypage/terms" element={<MyPageTerms />} />
+        <Route path="mypage/privacy" element={<MyPagePrivacy />} />
       </Route>
       {/* 백오피스: /admin/login 은 공개, 나머지 /admin/* 는 ADMIN 전용 */}
       <Route path="/admin" element={<AdminGate />}>
@@ -68,6 +74,8 @@ function App() {
           <Route path="orders" element={<AdminOrders />} />
           <Route path="menu" element={<AdminMenu />} />
           <Route path="categories" element={<AdminCategories />} />
+          <Route path="terms" element={<AdminTerms />} />
+          <Route path="privacy" element={<AdminPrivacy />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />

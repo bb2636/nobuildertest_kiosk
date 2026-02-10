@@ -79,7 +79,8 @@ async function request<T>(
         }
         if (!retryRes.ok) {
           const err = await retryRes.json().catch(() => ({ error: retryRes.statusText }));
-          throw new Error((err as { error?: string }).error ?? 'Request failed');
+          const body = err as { error?: string; message?: string };
+          throw new Error(body.message ?? body.error ?? 'Request failed');
         }
         if (retryRes.status === 204) return undefined as T;
         return retryRes.json();
@@ -90,7 +91,9 @@ async function request<T>(
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error((err as { error?: string }).error ?? 'Request failed');
+      const body = err as { error?: string; message?: string };
+      const msg = body.message ?? body.error ?? 'Request failed';
+      throw new Error(msg);
     }
     if (res.status === 204) return undefined as T;
     return res.json();
@@ -102,6 +105,14 @@ async function request<T>(
 
 export const api = {
   health: () => request<{ ok: boolean; db: string }>('/health'),
+
+  /** 공개 사이트 콘텐츠 (마이페이지 약관/개인정보 조회) */
+  site: {
+    terms: () =>
+      request<{ content: string; updatedAt: string | null }>('/site/terms'),
+    privacy: () =>
+      request<{ content: string; updatedAt: string | null }>('/site/privacy'),
+  },
 
   categories: {
     list: () => request<{ id: string; name: string; sortOrder: number }[]>('/categories'),
@@ -198,6 +209,9 @@ export const api = {
           : undefined
       ),
     getOrder: (id: string) => request<UserOrderItem>(`/user/orders/${id}`),
+    /** 본인 주문 취소 (접수대기 상태일 때만 가능). 토스 결제 시 토스 취소 API 호출 후 포인트 회수 */
+    cancelOrder: (id: string) =>
+      request<UserOrderItem>(`/user/orders/${id}/cancel`, { method: 'POST' }),
     update: (body: { email?: string; currentPassword?: string; newPassword?: string }) =>
       request<{ success: boolean }>('/user/update', {
         method: 'PATCH',
@@ -260,6 +274,24 @@ export const api = {
       update: (id: string, body: { name?: string; isActive?: boolean; sortOrder?: number }) =>
         request(`/categories/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
       delete: (id: string) => request(`/categories/${id}`, { method: 'DELETE' }),
+    },
+    terms: {
+      get: () =>
+        request<{ content: string; updatedAt: string | null }>('/admin/terms'),
+      update: (content: string) =>
+        request<{ content: string; updatedAt: string }>('/admin/terms', {
+          method: 'PUT',
+          body: JSON.stringify({ content }),
+        }),
+    },
+    privacy: {
+      get: () =>
+        request<{ content: string; updatedAt: string | null }>('/admin/privacy'),
+      update: (content: string) =>
+        request<{ content: string; updatedAt: string }>('/admin/privacy', {
+          method: 'PUT',
+          body: JSON.stringify({ content }),
+        }),
     },
   },
 };

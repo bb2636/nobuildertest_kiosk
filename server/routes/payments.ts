@@ -66,7 +66,7 @@ paymentsRouter.post('/confirm', async (req, res) => {
     await prisma.$transaction(async (tx) => {
       await tx.order.update({
         where: { id: orderId },
-        data: { paymentStatus: PaymentStatus.PAID },
+        data: { paymentStatus: PaymentStatus.PAID, tossPaymentKey: paymentKey },
       });
       if (order.userId && amount > 0) {
         pointsEarned = Math.floor(amount * POINT_RATE);

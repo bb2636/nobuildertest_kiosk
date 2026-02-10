@@ -10,6 +10,7 @@ import bcrypt from 'bcrypt';
 import { prisma } from '../db.js';
 import { requireAuth, optionalAuth, type RequestWithAuth } from '../middleware/auth.js';
 import { OrderStatus } from '@prisma/client';
+import { cancelTossPayment, POINT_RATE } from '../services/tossCancel.js';
 
 const SALT_ROUNDS = 10;
 
@@ -161,6 +162,107 @@ userRouter.get('/orders', async (req: RequestWithAuth, res) => {
     }));
 
     res.json(list);
+  } catch (e) {
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+/** 취소 가능한 주문 상태 (유저는 접수대기일 때만 취소 가능) */
+const USER_CANCELABLE_STATUSES: OrderStatus[] = [OrderStatus.WAITING];
+
+/** POST /api/user/orders/:id/cancel - 본인 주문 취소 (접수대기 상태일 때만 가능, 토스 결제 시 토스 취소 API 호출 후 포인트 회수) */
+userRouter.post('/orders/:id/cancel', async (req: RequestWithAuth, res) => {
+  try {
+    const userId = req.userId!;
+    const orderId = (req.params.id as string)?.trim();
+    if (!orderId) {
+      return res.status(400).json({ error: 'order id required' });
+    }
+
+    const existing = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, userId: true, status: true, tossPaymentKey: true, paymentStatus: true, totalAmount: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'order not found' });
+    }
+    if (existing.userId !== userId) {
+      return res.status(404).json({ error: 'order not found' });
+    }
+    if (!USER_CANCELABLE_STATUSES.includes(existing.status)) {
+      return res.status(400).json({
+        error: 'cancel_not_allowed',
+        message: '접수대기 상태일 때만 취소할 수 있습니다.',
+      });
+    }
+
+    if (existing.tossPaymentKey && existing.paymentStatus === 'PAID') {
+      const cancelError = await cancelTossPayment(existing.tossPaymentKey, '고객 주문 취소');
+      if (cancelError) {
+        return res.status(400).json({
+          error: 'toss_cancel_failed',
+          message: cancelError,
+        });
+      }
+    }
+
+    const pointsToRefund =
+      existing.paymentStatus === 'PAID' && existing.userId && existing.totalAmount > 0
+        ? Math.floor(existing.totalAmount * POINT_RATE)
+        : 0;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: orderId },
+        data: { status: OrderStatus.CANCELED },
+      });
+      if (pointsToRefund > 0 && existing.userId) {
+        const user = await tx.user.findUnique({
+          where: { id: existing.userId },
+          select: { point: true },
+        });
+        if (user && user.point > 0) {
+          const deduct = Math.min(pointsToRefund, user.point);
+          await tx.user.update({
+            where: { id: existing.userId },
+            data: { point: { decrement: deduct } },
+          });
+        }
+      }
+    });
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: {
+          include: {
+            product: { select: { name: true, imageUrl: true } },
+            selectedOptions: { include: { option: { select: { name: true } } } },
+          },
+        },
+      },
+    });
+    if (!order) {
+      return res.status(500).json({ error: 'failed' });
+    }
+    res.json({
+      id: order.id,
+      orderNo: order.orderNo,
+      orderNumber: order.orderNumber,
+      orderType: order.orderType,
+      status: order.status,
+      totalAmount: order.totalAmount,
+      createdAt: order.createdAt,
+      items: order.items.map((i) => ({
+        id: i.id,
+        productName: i.product.name,
+        imageUrl: i.product.imageUrl ?? undefined,
+        quantity: i.quantity,
+        lineTotalAmount: i.lineTotalAmount,
+        optionNames: i.selectedOptions.map((so) => so.option.name),
+      })),
+    });
   } catch (e) {
     res.status(500).json({ error: 'failed' });
   }

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, type UserOrderItem } from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 
 const STATUS_LABEL: Record<string, string> = {
   WAITING: '접수대기',
@@ -21,9 +22,12 @@ const LIVE_STATUSES = ['WAITING', 'PREPARING', 'PICKUP_READY'];
 export function OrderStatusView() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [order, setOrder] = useState<UserOrderItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [canceling, setCanceling] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchOrder = () => {
@@ -87,6 +91,22 @@ export function OrderStatusView() {
   }
 
   const isLive = LIVE_STATUSES.includes(order.status);
+  /** 로그인한 본인 주문일 때만 취소 가능 (접수대기 상태만) */
+  const canCancel = !!user && order.status === 'WAITING';
+
+  const handleCancel = async () => {
+    if (!orderId || !canCancel || canceling) return;
+    setCancelError(null);
+    setCanceling(true);
+    try {
+      const updated = await api.user.cancelOrder(orderId);
+      setOrder(updated);
+    } catch (e) {
+      setCancelError(e instanceof Error ? e.message : '취소에 실패했습니다.');
+    } finally {
+      setCanceling(false);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-[100dvh] bg-[#f5f5f5]">
@@ -133,6 +153,23 @@ export function OrderStatusView() {
             총 {order.totalAmount.toLocaleString()}원
           </p>
         </div>
+
+        {cancelError && (
+          <p className="text-sm text-kiosk-error mb-3" role="alert">
+            {cancelError}
+          </p>
+        )}
+
+        {canCancel && (
+          <button
+            type="button"
+            onClick={handleCancel}
+            disabled={canceling}
+            className="w-full py-3 rounded-xl border border-kiosk-error text-kiosk-error font-medium mb-3 disabled:opacity-50"
+          >
+            {canceling ? '취소 처리 중…' : '주문 취소'}
+          </button>
+        )}
 
         {(order.status === 'COMPLETED' || order.status === 'CANCELED') && (
           <p className="text-xs text-kiosk-textSecondary text-center">

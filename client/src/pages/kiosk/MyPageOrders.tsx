@@ -33,6 +33,8 @@ export function MyPageOrders() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -63,6 +65,26 @@ export function MyPageOrders() {
   const hasMoreItems = (order: UserOrderItem) => order.items.length > 1;
   const itemCount = (order: UserOrderItem) => order.items.reduce((sum, i) => sum + i.quantity, 0);
   const firstItemImage = (order: UserOrderItem) => firstItem(order)?.imageUrl;
+  /** 접수대기 상태일 때만 취소 가능 */
+  const canCancelOrder = (order: UserOrderItem) => order.status === 'WAITING';
+
+  const handleCancelOrder = async (e: React.MouseEvent, orderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (cancelingId) return;
+    setCancelError(null);
+    setCancelingId(orderId);
+    try {
+      await api.user.cancelOrder(orderId);
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: 'CANCELED' } : o))
+      );
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : '주문 취소에 실패했습니다.');
+    } finally {
+      setCancelingId(null);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-[100dvh] bg-white">
@@ -163,6 +185,11 @@ export function MyPageOrders() {
           )}
         </div>
 
+        {cancelError && (
+          <p className="mx-4 mb-2 text-sm text-kiosk-error" role="alert">
+            {cancelError}
+          </p>
+        )}
         {loading ? (
           <p className="text-kiosk-textSecondary text-center py-12">로딩 중…</p>
         ) : orders.length === 0 ? (
@@ -222,6 +249,16 @@ export function MyPageOrders() {
                       return `${y}.${m}.${day} ${h}:${min}`;
                     })()}
                   </p>
+                  {canCancelOrder(order) && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleCancelOrder(e, order.id)}
+                      disabled={cancelingId === order.id}
+                      className="mt-1.5 text-xs text-kiosk-error underline disabled:opacity-50"
+                    >
+                      {cancelingId === order.id ? '취소 중…' : '주문 취소'}
+                    </button>
+                  )}
                 </div>
                 <p className="shrink-0 font-semibold text-kiosk-text text-sm">
                   {order.totalAmount.toLocaleString()}원
