@@ -221,6 +221,12 @@ userRouter.post('/orders/:id/cancel', async (req: RequestWithAuth, res) => {
         : 0;
 
     await prisma.$transaction(async (tx) => {
+      if (existing.tossPaymentKey) {
+        await tx.tossPayment.updateMany({
+          where: { id: existing.tossPaymentKey },
+          data: { tossPaymentStatus: 'CANCELED' },
+        });
+      }
       await tx.order.update({
         where: { id: orderId },
         data: {

@@ -41,6 +41,25 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* 포커스 링: 키보드 포커스 시에만 표시 (터치/마우스 클릭 시에는 숨김) */
+.kiosk-view button:focus-visible,
+.kiosk-view a:focus-visible,
+.kiosk-view [tabindex="0"]:focus-visible,
+.kiosk-view input:focus-visible,
+.kiosk-view select:focus-visible,
+.kiosk-view textarea:focus-visible {
+  outline: 2px solid var(--kiosk-primary);
+  outline-offset: 2px;
+}
+.admin-view button:focus-visible,
+.admin-view a:focus-visible,
+.admin-view input:focus-visible,
+.admin-view select:focus-visible,
+.admin-view textarea:focus-visible {
+  outline: 2px solid var(--admin-primary);
+  outline-offset: 2px;
+}
+
 /* 키오스크: 모바일 full width, 웹에서 중앙 정렬 + 최대 너비 (반응형) */
 .kiosk-view {
   min-height: 100dvh;
@@ -64,7 +83,7 @@ body {
 }
 @media (min-width: 1024px) {
   .kiosk-view {
-    max-width: 48rem; /* 768px */
+    max-width: 80rem; /* 1280px - 웹에서 페이지 넓이에 맞게 확장 */
   }
 }
 

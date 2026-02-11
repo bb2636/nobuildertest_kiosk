@@ -4,7 +4,7 @@
 
 ## 기술 스택
 
-- **Frontend**: React 18, Vite, React Router, Tailwind CSS, Lucide React
+- **Frontend**: React 18, Vite, React Router, Tailwind CSS, Lucide React, i18next / react-i18next (키오스크 다국어)
 - **Backend**: Express, Prisma
 - **DB**: Neon (PostgreSQL)
 
@@ -77,7 +77,9 @@ step4/
 │   ├── src/
 │   │   ├── api/            # API 클라이언트 (client.ts), 메뉴보드
 │   │   ├── components/     # ui (Button, Input, Card, Modal, Toggle), admin (AdminGate)
-│   │   ├── contexts/       # AuthContext, KioskCartContext, NetworkErrorContext
+│   │   ├── contexts/       # AuthContext, KioskCartContext, MenuCacheContext, NetworkErrorContext
+│   │   ├── i18n.ts         # 키오스크 다국어(ko/en) 초기화, localStorage 저장
+│   │   ├── locales/        # ko.json, en.json (키오스크 번역)
 │   │   ├── layouts/        # KioskLayout, AdminLayout(좌측 네비)
 │   │   ├── pages/
 │   │   │   ├── kiosk/      # 홈, 메뉴상세, 장바구니, 결제, 로그인/회원가입, 마이페이지, 주문상태보기
@@ -112,6 +114,12 @@ step4/
 | **토스 결제** | **카드/토스** 선택 시 → 토스 결제창 오픈, **승인 API 성공 시에만** 주문 PAID·주문 완료 페이지 이동. 현금/모바일/기타는 결제창 없이 즉시 완료 | [docs/TOSS_PAYMENTS.md](docs/TOSS_PAYMENTS.md) |
 | **마이페이지** | 주문내역(매장/포장·상태·**옵션명**·이미지 표시), **상태·기간 필터**, **주문 상태 보기**(접수대기/제조중/픽업대기 폴링), **주문 취소**(**접수대기 상태일 때만** 가능, 그 외 상태는 취소 불가. 토스 결제 시 토스 취소 API 호출 후 포인트 회수), 포인트/마일리지, 계정정보, 설정, **서비스 이용약관**·**개인정보 처리방침**(관리자에서 등록한 내용 조회) | 본인 주문만 조회. 비회원은 주문번호로 단일 주문 조회 가능. 취소는 로그인 회원만 가능 |
 | **푸시 알림** | 결제 시 "주문 상태 알림 받기" 체크 또는 주문 완료 페이지에서 구독 시, 접수·상태 변경 시 푸시 발송. 완료/취소 24h 지난 주문은 푸시 구독 삭제(알림만 사라짐), 상세는 계속 조회 가능 | [docs/PUSH_NOTIFICATIONS.md](docs/PUSH_NOTIFICATIONS.md) |
+| **주문 완료·픽업** | 주문 완료 화면에 **주문번호 N 호출 시 픽업해 주세요** 안내 문구 표시 | |
+| **결제 취소/실패** | 토스 결제 취소·실패 시 `failUrl` 복귀 후 **결제가 취소되었습니다. 장바구니는 유지됩니다** 배너 표시 | Checkout `?payment=fail` 처리 |
+| **알레르기·원재료** | 메뉴 상세에 **알레르기 유발 원재료** 강조 영역(DB `ingredients` 노출, 안내 문구 포함) | 커피/젤라또/디저트 공통 |
+| **주문 수량 한도** | 장바구니·결제 화면에 **1회 주문 최대 50종** 안내. 서버는 기존 `ITEMS_TOO_MANY` 검증 유지 | |
+| **전체화면** | 키오스크 홈 헤더 **전체화면** 버튼(F11 대체). 터치·클릭으로 진입/해제 | 60초 무활동 홈 복귀는 기존 유지 |
+| **다국어** | 키오스크 **KO/EN** 언어 전환(i18n). 선택 언어는 `localStorage` 저장, 홈·장바구니·메뉴상세·주문완료·결제 등 문구 번역 | `client/src/locales/ko.json`, `en.json` |
 | **기타** | 품절 메뉴 뱃지·흐림 처리, 60초 무활동 시 홈 복귀(결제/주문완료 제외), 전역 네트워크 오류 배너, 반응형(모바일·웹), 404/403/500/401 전용 페이지 | |
 
 ### 백오피스 (관리자 전용)
@@ -148,8 +156,22 @@ step4/
 | 관리자 메뉴 | GET / POST / PATCH / DELETE | /api/admin/products, /api/admin/products/:id | JWT + ADMIN | 메뉴 목록·등록(상세 필드)·수정·삭제 |
 | 관리자 카테고리 | GET / POST / PATCH / DELETE | /api/categories, /api/categories/:id | GET 공개, 나머지 ADMIN | |
 | 관리자 약관 | GET / PUT | /api/admin/terms, /api/admin/privacy | JWT + ADMIN | 약관·개인정보처리방침 조회/수정 (content, updatedAt) |
-| 메뉴·메뉴판 | GET | /api/menu, /api/menu/:id, /api/menu-board | - | 키오스크용 공개 |
+| 메뉴·메뉴판 | GET | /api/menu, /api/menu/:id, /api/menu-board | - | 키오스크용 공개. 메뉴 상세 응답에 `ingredients` 포함 |
 
 상세 스펙은 **http://localhost:3001/api-docs** (Swagger) 참고.
+
+---
+
+## 최근 보강 사항 (키오스크)
+
+| 항목 | 구현 내용 |
+|------|-----------|
+| **주문 번호 픽업 안내** | `OrderDone.tsx`: 주문 완료 문구 아래 "주문번호 N 호출 시 픽업해 주세요" 표시 (다국어 대응) |
+| **결제 취소/실패 안내** | `Checkout.tsx`: 토스 `failUrl` → `/checkout?payment=fail`. 복귀 시 "결제가 취소되었습니다. 장바구니는 유지됩니다" 배너 |
+| **알레르기·원재료 강조** | `KioskMenuDetail.tsx`: `ingredients` 있을 때 "알레르기 유발 원재료" 제목·아이콘·안내 문구·원재료 텍스트를 강조 박스로 표시 |
+| **주문 수량 한도** | `KioskCart.tsx`, `Checkout.tsx`: 푸터에 "1회 주문 최대 50종" 문구 (서버 `ITEMS_TOO_MANY`와 일치) |
+| **전체화면** | `KioskHome.tsx`: 헤더 전체화면 버튼(Maximize2). `requestFullscreen` / `exitFullscreen` |
+| **다국어(i18n)** | `i18n.ts` + `locales/ko.json`, `en.json`. 홈 헤더 KO/EN 전환, 키오스크 전역 문구 번역. 언어는 `localStorage`(`kiosk-locale`) 저장 |
+| **UI 안정성** | `Modal.tsx`: 포커스 트랩 시 `focusables[0]` / `focusables[length-1]` undefined 체크 추가 (TS 빌드 오류 해결) |
 
 

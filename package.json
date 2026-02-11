@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@tosspayments/payment-sdk": "^1.9.2",
+    "@tosspayments/tosspayments-sdk": "^2.5.0",
     "web-push": "^3.6.7"
   }
 }

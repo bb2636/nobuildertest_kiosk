@@ -21,6 +21,8 @@ type CartContextValue = {
   add: (line: Omit<KioskCartLine, 'quantity'> & { quantity?: number }) => void;
   remove: (index: number) => void;
   updateQuantity: (index: number, quantity: number) => void;
+  /** 검증 후 유효한 라인만 남기고 저장 (품절·삭제된 상품 제거용) */
+  setLinesFromValidation: (lines: KioskCartLine[]) => void;
   totalPrice: number;
   clear: () => void;
 };
@@ -88,6 +90,11 @@ export function KioskCartProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const setLinesFromValidation = useCallback((newLines: KioskCartLine[]) => {
+    setLines(newLines);
+    saveCart(newLines);
+  }, []);
+
   const clear = useCallback(() => {
     setLines([]);
     saveCart([]);
@@ -100,6 +107,7 @@ export function KioskCartProvider({ children }: { children: React.ReactNode }) {
     add,
     remove,
     updateQuantity,
+    setLinesFromValidation,
     totalPrice,
     clear,
   };

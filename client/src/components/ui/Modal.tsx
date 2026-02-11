@@ -1,5 +1,13 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
+
+const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+function getFocusables(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (el) => !el.hasAttribute('disabled') && el.offsetParent !== null
+  );
+}
 
 interface ModalProps {
   open: boolean;
@@ -18,12 +26,65 @@ export function Modal({
   theme = 'kiosk',
   showCloseButton = true,
 }: ModalProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const previousActiveRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    previousActiveRef.current = document.activeElement as HTMLElement | null;
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !contentRef.current) return;
+    const el = contentRef.current;
+    const focusables = getFocusables(el);
+    const first = focusables[0];
+    if (first) {
+      const t = setTimeout(() => first.focus(), 0);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+        if (previousActiveRef.current?.focus) previousActiveRef.current.focus();
+        return;
+      }
+      if (e.key !== 'Tab' || !contentRef.current) return;
+      const focusables = getFocusables(contentRef.current);
+      if (focusables.length === 0) return;
+      const current = document.activeElement as HTMLElement;
+      const idx = focusables.indexOf(current);
+      if (idx === -1) return;
+      if (e.shiftKey) {
+        if (idx === 0) {
+          const last = focusables[focusables.length - 1];
+          if (last) {
+            e.preventDefault();
+            last.focus();
+          }
+        }
+      } else {
+        if (idx === focusables.length - 1) {
+          const first = focusables[0];
+          if (first) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [open, onClose]);
+
+  const handleClose = () => {
+    onClose();
+    if (previousActiveRef.current?.focus) previousActiveRef.current.focus();
+  };
 
   if (!open) return null;
 
@@ -37,10 +98,11 @@ export function Modal({
     >
       <div
         className="absolute inset-0 bg-black/40"
-        onClick={onClose}
+        onClick={handleClose}
         aria-hidden="true"
       />
       <div
+        ref={contentRef}
         className={`relative w-full max-w-md rounded-2xl bg-white shadow-xl ${textClass}`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -51,7 +113,7 @@ export function Modal({
             {showCloseButton && (
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 className="rounded p-1 hover:bg-gray-100"
                 aria-label="닫기"
               >

@@ -28,25 +28,38 @@ export function AdminOrders() {
   const [orders, setOrders] = useState<AdminOrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState(() => {
+    const today = new Date();
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    return formatDateForInput(weekAgo);
+  });
+  const [dateTo, setDateTo] = useState(() => formatDateForInput(new Date()));
   const [detailOrder, setDetailOrder] = useState<AdminOrderListItem | null>(null);
   const [openStatusId, setOpenStatusId] = useState<string | null>(null);
   const [statusFilterOpen, setStatusFilterOpen] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const statusFilterRef = useRef<HTMLDivElement>(null);
 
   const fetchOrders = () => {
     setLoading(true);
+    setListError(null);
     const params: { status?: string; from?: string; to?: string } = {};
     if (statusFilter !== 'ALL') params.status = statusFilter;
     if (dateFrom) params.from = dateFrom;
     if (dateTo) params.to = dateTo;
     api.admin.orders
       .list(params)
-      .then(setOrders)
-      .catch(() => setOrders([]))
+      .then((list) => {
+        setOrders(list);
+        setListError(null);
+      })
+      .catch((e) => {
+        setOrders([]);
+        setListError(e instanceof Error ? e.message : '주문 목록을 불러오지 못했습니다.');
+      })
       .finally(() => setLoading(false));
   };
 
@@ -141,7 +154,7 @@ export function AdminOrders() {
           </button>
           {statusFilterOpen && (
             <ul
-              className="absolute left-0 top-full z-20 mt-1 min-w-[180px] max-h-60 overflow-auto rounded-lg border border-admin-border bg-white py-1 shadow-lg"
+              className="absolute left-0 top-full z-[100] mt-1 min-w-[180px] max-h-60 overflow-auto rounded-lg border border-admin-border bg-white py-1 shadow-lg"
               role="listbox"
             >
               {STATUS_OPTIONS.map((opt) => (
@@ -172,6 +185,12 @@ export function AdminOrders() {
       {statusError && (
         <p className="text-admin-error text-sm mb-3" role="alert">
           {statusError}
+        </p>
+      )}
+
+      {listError && (
+        <p className="text-admin-error text-sm mb-3" role="alert">
+          {listError}
         </p>
       )}
 
@@ -236,7 +255,7 @@ export function AdminOrders() {
                         <ChevronDown className={`h-3.5 w-3.5 transition ${openStatusId === order.id ? 'rotate-180' : ''}`} />
                       </button>
                       {openStatusId === order.id && (
-                        <div className="absolute left-0 top-full z-10 mt-1 min-w-[100px] rounded border border-admin-border bg-white py-1 shadow-lg">
+                        <div className="absolute left-0 top-full z-[100] mt-1 min-w-[100px] rounded border border-admin-border bg-white py-1 shadow-lg">
                           {STATUS_OPTIONS.filter((o) => o.value !== 'ALL').map((opt) => (
                             <button
                               key={opt.value}

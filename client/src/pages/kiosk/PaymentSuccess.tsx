@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useKioskCart } from '../../contexts/KioskCartContext';
@@ -9,6 +9,7 @@ export function PaymentSuccess() {
   const navigate = useNavigate();
   const { clear } = useKioskCart();
   const [error, setError] = useState<string | null>(null);
+  const confirmStarted = useRef(false);
 
   useEffect(() => {
     const paymentKey = searchParams.get('paymentKey');
@@ -20,6 +21,8 @@ export function PaymentSuccess() {
       setError('결제 정보가 올바르지 않습니다.');
       return;
     }
+    if (confirmStarted.current) return;
+    confirmStarted.current = true;
 
     let cancelled = false;
     (async () => {
@@ -42,7 +45,7 @@ export function PaymentSuccess() {
   if (error) {
     return (
       <div className="flex flex-col min-h-[100dvh] items-center justify-center p-4 sm:p-6 text-kiosk-text">
-        <p className="text-kiosk-error mb-4" role="alert">{error}</p>
+        <p className="text-kiosk-error mb-4" role="alert" aria-atomic="true">{error}</p>
         <button
           type="button"
           onClick={() => navigate('/', { replace: true })}

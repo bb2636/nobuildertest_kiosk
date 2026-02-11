@@ -20,20 +20,24 @@ function getAuthToken(): string | null {
 }
 
 const AUTH_SESSION_EXPIRED = 'auth:sessionExpired';
-const NETWORK_ERROR_EVENT = 'app:network-error';
+
+/** NetworkErrorContext와 동기화: 동일한 이벤트명 사용 */
+export const NETWORK_ERROR_EVENT = 'app:network-error';
 
 function clearAuth(): void {
   localStorage.removeItem(AUTH_STORAGE_KEY);
   window.dispatchEvent(new CustomEvent(AUTH_SESSION_EXPIRED));
 }
 
-function isNetworkError(e: unknown): boolean {
+/** 네트워크/타임아웃 등 fetch 실패로 판단할 때 true (배너 노출용) */
+export function isNetworkError(e: unknown): boolean {
   if (e instanceof TypeError && e.message === 'Failed to fetch') return true;
-  if (e instanceof Error && /network|fetch|offline/i.test(e.message)) return true;
+  if (e instanceof Error && /network|fetch|offline|timeout|abort/i.test(e.message)) return true;
   return false;
 }
 
-function dispatchNetworkError(): void {
+/** 상단 네트워크 오류 배너 표시 (NetworkErrorProvider가 구독) */
+export function dispatchNetworkError(): void {
   window.dispatchEvent(new CustomEvent(NETWORK_ERROR_EVENT));
 }
 
@@ -317,6 +321,7 @@ export type MenuItem = {
   englishName: string | null;
   description: string | null;
   basePrice: number;
+  ingredients: string | null;
   isSoldOut: boolean;
   isBest: boolean;
   defaultShotCount: number | null;

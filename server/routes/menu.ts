@@ -20,6 +20,7 @@ function toMenuItemShape(p: {
   description: string | null;
   basePrice: number;
   imageUrl: string | null;
+  ingredients: string | null;
   calories: string | null;
   isAvailable: boolean;
   isBest: boolean;
@@ -44,6 +45,7 @@ function toMenuItemShape(p: {
     englishName: p.englishName ?? null,
     description: p.description,
     basePrice: p.basePrice,
+    ingredients: p.ingredients ?? null,
     isSoldOut: !p.isAvailable,
     isBest: p.isBest,
     defaultShotCount: p.defaultShotCount ?? null,

@@ -101,6 +101,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         persist(accessToken, refreshToken, user);
         return { ok: true, user };
       } catch (e) {
+        const { isNetworkError, dispatchNetworkError } = await import('../api/client');
+        if (isNetworkError(e)) dispatchNetworkError();
         return { ok: false, error: e instanceof Error ? e.message : '로그인 실패' };
       }
     },
@@ -124,6 +126,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
         }
       }
+    } catch (e) {
+      const { isNetworkError, dispatchNetworkError } = await import('../api/client');
+      if (isNetworkError(e)) dispatchNetworkError();
     } finally {
       persist(null, null, null);
     }

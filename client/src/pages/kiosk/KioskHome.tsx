@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingCart, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Maximize2, ShoppingCart, User } from 'lucide-react';
 import { useKioskCart } from '../../contexts/KioskCartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMenuCache } from '../../contexts/MenuCacheContext';
+import { setLocale } from '../../i18n';
 
 export function KioskHome() {
+  const { t, i18n } = useTranslation('kiosk');
   const { user } = useAuth();
   const { lines, clear } = useKioskCart();
   const { categories, items, isInitialized, revalidate } = useMenuCache();
@@ -30,7 +33,7 @@ export function KioskHome() {
   if (!isInitialized) {
     return (
       <div className="flex flex-col min-h-[100dvh] bg-[#f5f5f5] items-center justify-center">
-        <p className="text-kiosk-textSecondary">메뉴를 불러오는 중…</p>
+        <p className="text-kiosk-textSecondary">{t('loadingMenu')}</p>
       </div>
     );
   }
@@ -41,11 +44,36 @@ export function KioskHome() {
         <Link to="/" className="text-lg font-semibold text-kiosk-text">
           FELN
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg overflow-hidden border border-kiosk-border bg-kiosk-surface">
+            {(['ko', 'en'] as const).map((lng) => (
+              <button
+                key={lng}
+                type="button"
+                onClick={() => setLocale(lng)}
+                className={`px-2.5 py-1.5 text-xs font-medium ${i18n.language === lng ? 'bg-kiosk-primary text-kiosk-text' : 'text-kiosk-textSecondary hover:bg-white'}`}
+                aria-label={lng === 'ko' ? t('langKo') : t('langEn')}
+              >
+                {lng === 'ko' ? 'KO' : 'EN'}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+              else document.exitFullscreen?.();
+            }}
+            className="p-2 rounded-lg hover:bg-kiosk-surface transition-colors text-kiosk-text"
+            aria-label={t('fullscreen')}
+            title={t('fullscreenTitle')}
+          >
+            <Maximize2 className="h-5 w-5" />
+          </button>
           <Link
             to="/cart"
             className="flex items-center gap-1.5 text-kiosk-text p-2 rounded-lg hover:bg-kiosk-surface transition-colors"
-            aria-label="장바구니"
+            aria-label={t('cart')}
           >
             <ShoppingCart className="h-5 w-5" />
           </Link>
@@ -53,29 +81,29 @@ export function KioskHome() {
             <Link
               to="/mypage"
               className="p-2 rounded-lg hover:bg-kiosk-surface transition-colors text-kiosk-text"
-              aria-label="마이페이지"
+              aria-label={t('mypage')}
             >
               <User className="h-5 w-5" />
             </Link>
           ) : (
             <Link to="/login" className="text-sm font-medium text-kiosk-primary">
-              로그인
+              {t('login')}
             </Link>
           )}
         </div>
       </header>
 
-      <div className="flex gap-0 overflow-x-auto md:overflow-x-visible md:flex-wrap md:justify-center px-4 md:px-6 py-3 bg-white border-b border-kiosk-border md:gap-2">
+      <div className="flex w-full bg-white border-b border-kiosk-border">
         <button
           type="button"
           onClick={() => setSelectedCategoryId(null)}
-          className={`shrink-0 px-4 py-2.5 text-sm font-medium rounded-lg ${
+          className={`flex-1 min-w-0 py-3 px-2 text-sm font-medium border-r border-kiosk-border last:border-r-0 ${
             selectedCategoryId === null
               ? 'bg-kiosk-primary text-kiosk-text'
-              : 'text-kiosk-textSecondary hover:bg-kiosk-surface'
+              : 'bg-kiosk-surface text-kiosk-textSecondary hover:bg-[#fff9e0]'
           }`}
         >
-          전체
+          {t('all')}
         </button>
         {[...categories]
           .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
@@ -84,13 +112,13 @@ export function KioskHome() {
             key={c.id}
             type="button"
             onClick={() => setSelectedCategoryId(c.id)}
-            className={`shrink-0 px-4 py-2.5 text-sm font-medium rounded-lg ${
+            className={`flex-1 min-w-0 py-3 px-2 text-sm font-medium border-r border-kiosk-border last:border-r-0 ${
               selectedCategoryId === c.id
                 ? 'bg-kiosk-primary text-kiosk-text'
-                : 'text-kiosk-textSecondary hover:bg-kiosk-surface'
+                : 'bg-kiosk-surface text-kiosk-textSecondary hover:bg-[#fff9e0]'
             }`}
           >
-            {c.name}
+            {i18n.language === 'en' ? (t(`categories.${c.name}`) || c.name) : c.name}
           </button>
           ))}
       </div>
@@ -118,23 +146,23 @@ export function KioskHome() {
                 <span
                   className={`absolute inset-0 flex items-center justify-center text-kiosk-textSecondary text-sm bg-white ${item.images[0]?.url ? 'hidden' : ''}`}
                 >
-                  이미지 없음
+                  {t('noImage')}
                 </span>
                 {item.isSoldOut && (
                   <span className="absolute top-0 left-0 bg-kiosk-textSecondary text-white text-[10px] font-bold py-1 px-2 rounded-br">
-                    품절
+                    {t('soldOut')}
                   </span>
                 )}
                 {item.isBest && (
                   <span className="absolute top-0 right-0 bg-kiosk-primary text-kiosk-text text-[10px] font-bold py-1 px-2 rounded-bl">
-                    Best
+                    {t('best')}
                   </span>
                 )}
               </div>
               <p className={`font-medium text-sm truncate mt-1 ${item.isSoldOut ? 'text-kiosk-textSecondary' : 'text-kiosk-text'}`}>
-                {item.name}
+                {i18n.language === 'en' && item.englishName ? item.englishName : item.name}
               </p>
-              <p className="text-xs text-kiosk-textSecondary">{item.basePrice.toLocaleString()}원</p>
+              <p className="text-xs text-kiosk-textSecondary">{item.basePrice.toLocaleString()}{t('currencyUnit')}</p>
             </Link>
           ))}
         </div>
@@ -143,18 +171,24 @@ export function KioskHome() {
       <footer className="sticky bottom-0 bg-white border-t border-kiosk-border p-4 md:p-6 safe-area-pb">
         <div className="flex items-center justify-between mb-2 text-sm text-kiosk-textSecondary">
           <span>
-            장바구니 <span className="font-semibold text-kiosk-primary">{cartCount}</span>
+            {t('cartCount', { count: cartCount })}
           </span>
           <button
             type="button"
             onClick={clear}
             className="text-kiosk-textSecondary hover:text-kiosk-text flex items-center gap-1"
           >
-            초기화
+            {t('reset')}
           </button>
         </div>
         <div className="flex items-center justify-between">
-          <span className="font-medium text-kiosk-text">총 {totalPrice.toLocaleString()}원</span>
+          <span className="font-medium text-kiosk-text">
+            {t('total', {
+              value: i18n.language === 'en'
+                ? `${totalPrice.toLocaleString()}${t('currencyUnit')}`.trim()
+                : totalPrice.toLocaleString(),
+            })}
+          </span>
           <Link
             to={lines.length > 0 ? '/cart' : '#'}
             className={`flex-1 max-w-[200px] ml-4 py-3 rounded-xl text-center font-semibold text-kiosk-text transition-opacity ${
@@ -162,7 +196,7 @@ export function KioskHome() {
             }`}
             onClick={(e) => lines.length === 0 && e.preventDefault()}
           >
-            주문하기
+            {t('orderBtn')}
           </Link>
         </div>
       </footer>

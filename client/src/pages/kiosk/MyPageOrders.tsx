@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell } from 'lucide-react';
 import { api, type UserOrderItem } from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
+import { OrderHistoryPopover } from '../../components/kiosk/OrderHistoryPopover';
 
 const STATUS_OPTIONS = [
   { value: 'ALL', label: '전체' },
@@ -35,18 +35,36 @@ export function MyPageOrders() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+
+  const fetchOrders = () => {
+    if (!user) return;
+    setLoading(true);
+    setListError(null);
+    const params: { status?: string; from?: string; to?: string } = {};
+    if (statusFilter !== 'ALL') params.status = statusFilter;
+    if (dateFrom) params.from = dateFrom;
+    if (dateTo) params.to = dateTo;
+    api.user
+      .orders(params)
+      .then((list) => {
+        setOrders(list);
+        setListError(null);
+      })
+      .catch((e) => {
+        setOrders([]);
+        const msg = e instanceof Error ? e.message : '주문 목록을 불러오지 못했습니다.';
+        setListError(msg);
+      })
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
     if (!user) {
       navigate('/login', { replace: true });
       return;
     }
-    setLoading(true);
-    const params: { status?: string; from?: string; to?: string } = {};
-    if (statusFilter !== 'ALL') params.status = statusFilter;
-    if (dateFrom) params.from = dateFrom;
-    if (dateTo) params.to = dateTo;
-    api.user.orders(params).then(setOrders).catch(() => {}).finally(() => setLoading(false));
+    fetchOrders();
   }, [user, navigate, statusFilter, dateFrom, dateTo]);
 
   if (!user) return null;
@@ -98,13 +116,7 @@ export function MyPageOrders() {
           >
             &lt;
           </button>
-          <button
-            type="button"
-            className="p-2 text-kiosk-text"
-            aria-label="알림"
-          >
-            <Bell className="h-5 w-5" />
-          </button>
+          <OrderHistoryPopover />
         </div>
         <p className="text-lg font-medium text-kiosk-text mt-1">
           {user.name}님
@@ -190,11 +202,58 @@ export function MyPageOrders() {
             {cancelError}
           </p>
         )}
+        {listError && (
+          <div className="mx-4 mb-3 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-kiosk-text">
+            <p className="text-kiosk-error font-medium">{listError}</p>
+            {listError.includes('unauthorized') || listError.includes('로그인') ? (
+              <button
+                type="button"
+                onClick={() => navigate('/login', { replace: true })}
+                className="mt-2 text-kiosk-primary underline"
+              >
+                로그인 페이지로 이동
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fetchOrders()}
+                className="mt-2 text-kiosk-primary underline"
+              >
+                다시 시도
+              </button>
+            )}
+          </div>
+        )}
         {loading ? (
           <p className="text-kiosk-textSecondary text-center py-12">로딩 중…</p>
-        ) : orders.length === 0 ? (
-          <p className="text-kiosk-textSecondary text-center py-12">주문 내역이 없습니다.</p>
-        ) : (
+        ) : orders.length === 0 && !listError ? (
+          <div className="text-center py-12 px-4">
+            {statusFilter !== 'ALL' ? (
+              <>
+                <p className="text-kiosk-textSecondary">
+                  선택한 상태(주문상태: {STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label ?? statusFilter})에 해당하는 주문이 없습니다.
+                </p>
+                <p className="text-kiosk-textSecondary text-sm mt-2">
+                  관리자가 주문 상태를 변경했을 수 있습니다. 전체로 보시면 다른 상태의 주문을 볼 수 있습니다.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('ALL')}
+                  className="mt-4 px-4 py-2 rounded-lg bg-kiosk-primary text-white text-sm font-medium"
+                >
+                  전체로 보기
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-kiosk-textSecondary">주문 내역이 없습니다.</p>
+                <p className="text-kiosk-textSecondary text-sm mt-2">
+                  로그인한 상태로 결제한 주문만 여기에 표시됩니다.
+                </p>
+              </>
+            )}
+          </div>
+        ) : orders.length === 0 && listError ? null : (
           <ul className="border-t border-kiosk-border">
             {orders.map((order) => (
               <li

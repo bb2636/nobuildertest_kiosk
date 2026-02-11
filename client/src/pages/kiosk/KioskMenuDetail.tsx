@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { api, type MenuItem } from '../../api/client';
 import { useKioskCart } from '../../contexts/KioskCartContext';
 import { Button } from '../../components/ui/Button';
-import { ShoppingCart, ChevronRight } from 'lucide-react';
+import { AlertTriangle, ShoppingCart, ChevronRight } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { parseCalories } from '../../utils/parseCalories';
 
 type OptionRow = { id: string; name: string; type: string; extraPrice: number };
 
-const BEAN_DESCRIPTIONS: Record<string, string> = {
+const BEAN_DESCRIPTIONS_KO: Record<string, string> = {
   기본:
     '고소하고 부드러운 산미에 균형 잡힌 바디감이 특징이에요. 진한 커피의 느낌을 원하시거나, 라떼와 어울리는 원두를 찾는 분께 추천드려요.\n고소함 · 미디엄 바디 · 은은한 산미 · 부드러운 끝맛',
   블론드:
@@ -18,7 +19,14 @@ const BEAN_DESCRIPTIONS: Record<string, string> = {
     '카페인을 최대한 줄인 원두로, 깊은 맛과 풍미는 그대로 느끼실 수 있어요. 저녁에도 커피를 즐기고 싶은 분께 추천드려요.\n고소함 · 부드러운 바디 · 깔끔한 끝맛',
 };
 
+const BEAN_DESCRIPTIONS_EN: Record<string, string> = {
+  기본: 'Nutty, balanced body with soft acidity. Recommended for rich coffee or latte. Nutty · Medium body · Smooth finish',
+  블론드: 'Light roast with subtle acidity. Fruity, floral notes. Light body · Sweet finish',
+  디카페인: 'Low caffeine, full flavor. Recommended for evening. Nutty · Smooth body · Clean finish',
+};
+
 export function KioskMenuDetail() {
+  const { t, i18n } = useTranslation('kiosk');
   const { itemId } = useParams<{ itemId: string }>();
   const navigate = useNavigate();
   const { add } = useKioskCart();
@@ -68,7 +76,7 @@ export function KioskMenuDetail() {
   if (!item) {
     return (
       <div className="p-4">
-        <p className="text-kiosk-textSecondary">메뉴를 불러오는 중...</p>
+        <p className="text-kiosk-textSecondary">{t('loadingMenu')}</p>
       </div>
     );
   }
@@ -91,12 +99,22 @@ export function KioskMenuDetail() {
       ? { '컵/콘': optionsByTypeRaw['컵/콘'] ?? [] }
       : optionsByTypeRaw;
 
-  const isShotType = (t: string) => t.includes('샷');
-  const isBeanType = (t: string) => t === '원두';
-  const isMilkOrSyrup = (t: string) => t === '우유' || t === '시럽';
+  const isShotType = (type: string) => type.includes('샷');
+  const isBeanType = (type: string) => type === '원두';
+  const isMilkOrSyrup = (type: string) => type === '우유' || type === '시럽';
+
+  const optionTypeKey = (type: string) => type.replace(/ \(.*\)/, '').trim();
+  const getOptionTypeLabel = (type: string) =>
+    i18n.language === 'en' ? (t(`optionType_${optionTypeKey(type)}`) || type) : type;
+  const getOptionValueLabel = (name: string) => {
+    if (i18n.language !== 'en') return name;
+    const first = name.split(' ')[0] ?? name;
+    return t(`optionValue_${name}`) || t(`optionValue_${first}`) || name;
+  };
+  const getBeanDescription = (key: string) =>
+    i18n.language === 'en' ? BEAN_DESCRIPTIONS_EN[key] : BEAN_DESCRIPTIONS_KO[key];
 
   const extraShots = isGelatoOrDessert ? 0 : Math.max(0, shotCount - defaultShots);
-  const shotExtraPrice = isGelatoOrDessert ? 0 : (shotOption ? shotOption.extraPrice * extraShots : 0);
   const cupConeOptionId = isGelato ? selectedOptionIds['컵/콘'] : undefined;
   const cupConeOptions = optionsByTypeRaw['컵/콘'] ?? [];
   const selectedIdsForCart = isDessert
@@ -116,7 +134,8 @@ export function KioskMenuDetail() {
     const opt = item.options.find((o) => o.id === id);
     return sum + (opt?.extraPrice ?? 0);
   }, 0);
-  const unitPrice = item.basePrice + optionExtra + shotExtraPrice;
+  // 샷 추가 금액은 selectedIdsForCart에 shotOption.id가 이미 포함되어 optionExtra에 반영됨. shotExtraPrice 중복 합산 제거
+  const unitPrice = item.basePrice + optionExtra;
   const totalPrice = unitPrice * quantity;
 
   const setOption = (type: string, optionId: string) => {
@@ -125,9 +144,10 @@ export function KioskMenuDetail() {
   };
 
   const addToCart = () => {
+    const displayName = i18n.language === 'en' && item.englishName ? item.englishName : item.name;
     add({
       productId: item.id,
-      name: item.name,
+      name: displayName,
       quantity,
       optionIds: selectedIdsForCart,
       unitPrice,
@@ -163,7 +183,7 @@ export function KioskMenuDetail() {
         <Link to="/" className="text-lg font-semibold text-black">
           FELN
         </Link>
-        <Link to="/cart" className="p-2" aria-label="장바구니">
+        <Link to="/cart" className="p-2" aria-label={t('cart')}>
           <ShoppingCart className="h-5 w-5 text-black" />
         </Link>
       </header>
@@ -195,18 +215,28 @@ export function KioskMenuDetail() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-xl font-bold text-black">{item.name}</h2>
+                  <h2 className="text-xl font-bold text-black">{i18n.language === 'en' && item.englishName ? item.englishName : item.name}</h2>
                   {item.isBest && (
                     <span className="bg-[#FFC107] text-white text-xs font-bold px-2 py-0.5 rounded">
                       Best
                     </span>
                   )}
                 </div>
-                {item.englishName && (
+                {item.englishName && i18n.language !== 'en' && (
                   <p className="text-sm text-gray-500 mt-0.5">{item.englishName}</p>
                 )}
+                {item.ingredients && item.ingredients.trim() && (
+                  <div className="mt-2 rounded-lg border-2 border-amber-400 bg-amber-50 px-3 py-2.5" role="region" aria-label={t('allergyIngredients')}>
+                    <p className="text-xs font-semibold text-amber-900 flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      {t('allergyIngredients')}
+                    </p>
+                    <p className="text-xs text-amber-800/90 mt-1">{t('allergyNotice')}</p>
+                    <p className="text-sm font-medium text-amber-900 mt-1.5">{item.ingredients}</p>
+                  </div>
+                )}
                 <p className="text-lg font-bold text-black mt-1">
-                  {item.basePrice.toLocaleString()}원
+                  {item.basePrice.toLocaleString()}{t('currencyUnit')}
                 </p>
               </div>
             </div>
@@ -224,7 +254,7 @@ export function KioskMenuDetail() {
                         : 'text-gray-500'
                     }`}
                   >
-                    {opt.name}
+                    {getOptionValueLabel(opt.name)}
                   </button>
                 ))}
               </div>
@@ -284,21 +314,31 @@ export function KioskMenuDetail() {
             </div>
             <div className="p-4 md:p-6">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl font-bold text-black">{item.name}</h2>
+                <h2 className="text-xl font-bold text-black">{i18n.language === 'en' && item.englishName ? item.englishName : item.name}</h2>
                 {item.isBest && (
                   <span className="bg-[#FFC107] text-black text-xs font-bold px-2 py-0.5 rounded">
                     Best
                   </span>
                 )}
               </div>
-              {item.englishName && (
+              {item.englishName && i18n.language !== 'en' && (
                 <p className="text-sm text-gray-500 mt-0.5">{item.englishName}</p>
               )}
               {item.description && (
                 <p className="text-sm text-gray-600 mt-1 leading-relaxed">{item.description}</p>
               )}
+              {item.ingredients && item.ingredients.trim() && (
+                <div className="mt-2 rounded-lg border-2 border-amber-400 bg-amber-50 px-3 py-2.5" role="region" aria-label={t('allergyIngredients')}>
+                  <p className="text-xs font-semibold text-amber-900 flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {t('allergyIngredients')}
+                  </p>
+                  <p className="text-xs text-amber-800/90 mt-1">{t('allergyNotice')}</p>
+                  <p className="text-sm font-medium text-amber-900 mt-1.5">{item.ingredients}</p>
+                </div>
+              )}
               <p className="text-lg font-bold text-black mt-2">
-                {item.basePrice.toLocaleString()}원
+                {item.basePrice.toLocaleString()}{t('currencyUnit')}
               </p>
 
               <div className="flex rounded-full bg-gray-100 p-0.5 border border-gray-200 mt-4">
@@ -339,9 +379,9 @@ export function KioskMenuDetail() {
                     onClick={() => setOptionModal({ type, opts })}
                     className="w-full flex items-center justify-between text-left py-2 border-b border-gray-100"
                   >
-                    <p className="text-sm font-medium text-black">{type.replace(/ \(.*\)/, '')}</p>
+                    <p className="text-sm font-medium text-black">{getOptionTypeLabel(type)}</p>
                     <span className="text-sm text-gray-500 flex items-center gap-1">
-                      기본 {shotCount}샷
+                      {t('shotDefault', { count: shotCount })}
                       <ChevronRight className="h-4 w-4" />
                     </span>
                   </button>
@@ -352,10 +392,10 @@ export function KioskMenuDetail() {
               const selectedId = selectedOptionIds[type];
               const selectedOpt = opts.find((o) => o.id === selectedId);
               const descKey = selectedOpt?.name?.split(' ')[0] ?? selectedOpt?.name ?? '';
-              const description = BEAN_DESCRIPTIONS[descKey];
+              const description = getBeanDescription(descKey);
               return (
                 <div key={type} className="px-4 md:px-6 pb-4">
-                  <p className="text-sm font-medium text-black mb-3">{type}</p>
+                  <p className="text-sm font-medium text-black mb-3">{getOptionTypeLabel(type)}</p>
                   <div className="flex gap-2 flex-wrap">
                     {opts.map((opt) => (
                       <button
@@ -368,12 +408,12 @@ export function KioskMenuDetail() {
                             : 'border-gray-200 bg-gray-100 text-gray-600'
                         }`}
                       >
-                        <span className="block font-medium">{opt.name.split(' ')[0] ?? opt.name}</span>
+                        <span className="block font-medium">{getOptionValueLabel(opt.name.split(' ')[0] ?? opt.name)}</span>
                         <span className="block text-xs opacity-80">
-                          {opt.name.includes(' ') ? opt.name.split(' ').slice(1).join(' ') : ''}
+                          {opt.name.includes(' ') ? opt.name.split(' ').slice(1).map((w) => getOptionValueLabel(w)).join(' ') : ''}
                         </span>
                         {opt.extraPrice > 0 && (
-                          <span className="text-xs">+{opt.extraPrice.toLocaleString()}원</span>
+                          <span className="text-xs">+{opt.extraPrice.toLocaleString()}{t('currencyUnit')}</span>
                         )}
                       </button>
                     ))}
@@ -396,9 +436,9 @@ export function KioskMenuDetail() {
                     onClick={() => setOptionModal({ type, opts })}
                     className="w-full flex items-center justify-between text-left py-2 border-b border-gray-100"
                   >
-                    <p className="text-sm font-medium text-black">{type}</p>
+                    <p className="text-sm font-medium text-black">{getOptionTypeLabel(type)}</p>
                     <span className="text-sm text-gray-500 flex items-center gap-1">
-                      {selectedOpt?.name ?? '선택'}
+                      {getOptionValueLabel(selectedOpt?.name ?? t('optionSelect'))}
                       <ChevronRight className="h-4 w-4" />
                     </span>
                   </button>
@@ -410,7 +450,7 @@ export function KioskMenuDetail() {
 
         {((isGelato && selectedOptionLabels.length > 0) || !isGelatoOrDessert) && (
           <div className="px-4 md:px-6 py-3 border-t border-gray-100">
-            <p className="text-xs text-gray-500 mb-1">변경된 옵션</p>
+            <p className="text-xs text-gray-500 mb-1">{t('optionChanged')}</p>
             <p className="text-sm text-black">
               {isGelato
                 ? selectedOptionLabels.join(' · ')
@@ -437,7 +477,7 @@ export function KioskMenuDetail() {
               +
             </button>
           </div>
-          <span className="text-lg font-bold text-black">{totalPrice.toLocaleString()}원</span>
+          <span className="text-lg font-bold text-black">{totalPrice.toLocaleString()}{t('currencyUnit')}</span>
         </div>
       </main>
 
@@ -449,7 +489,7 @@ export function KioskMenuDetail() {
           disabled={item.isSoldOut}
           className="bg-[#FFC107] text-black font-bold hover:bg-amber-400"
         >
-          {item.isSoldOut ? '품절' : isGelatoOrDessert ? '담기' : '메뉴 담기'}
+          {item.isSoldOut ? t('soldOut') : isGelatoOrDessert ? t('addToCartShort') : t('addToCart')}
         </Button>
       </footer>
 
@@ -457,15 +497,15 @@ export function KioskMenuDetail() {
         <Modal
           open={!!optionModal}
           onClose={() => setOptionModal(null)}
-          title={optionModal.type.replace(/ \(.*\)/, '')}
+          title={getOptionTypeLabel(optionModal.type)}
         >
           {isShotType(optionModal.type) ? (
             <div>
               <p className="text-sm text-kiosk-textSecondary mb-4">
-                에스프레소를 커스텀으로 즐겨보세요!
+                {t('shotCustom')}
               </p>
               <div className="flex items-center justify-between">
-                <span className="text-kiosk-text">에스프레소 샷</span>
+                <span className="text-kiosk-text">{t('espressoShot')}</span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -485,7 +525,7 @@ export function KioskMenuDetail() {
                 </div>
               </div>
               <Button theme="kiosk" fullWidth className="mt-6" onClick={() => setOptionModal(null)}>
-                적용하기
+                {t('apply')}
               </Button>
             </div>
           ) : (
@@ -501,12 +541,12 @@ export function KioskMenuDetail() {
                       : 'border-kiosk-border bg-white text-kiosk-textSecondary'
                   }`}
                 >
-                  {opt.name}
-                  {opt.extraPrice > 0 && ` +${opt.extraPrice.toLocaleString()}원`}
+                  {getOptionValueLabel(opt.name)}
+                  {opt.extraPrice > 0 && ` +${opt.extraPrice.toLocaleString()}${t('currencyUnit')}`.trim()}
                 </button>
               ))}
               <Button theme="kiosk" fullWidth className="mt-4" onClick={() => setOptionModal(null)}>
-                적용하기
+                {t('apply')}
               </Button>
             </div>
           )}

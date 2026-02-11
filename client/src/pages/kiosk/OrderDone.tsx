@@ -1,22 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import Lottie from 'lottie-react';
+import { useTranslation } from 'react-i18next';
+import { X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../api/client';
 import { getPushSubscription } from '../../utils/pushNotification';
 
-const AUTO_REDIRECT_SEC = 5;
-
 export function OrderDone() {
+  const { t } = useTranslation('kiosk');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const orderNo = searchParams.get('orderNo') ?? '';
   const orderId = searchParams.get('orderId') ?? '';
   const pointsEarned = searchParams.get('points') ?? '';
-  const [animationData, setAnimationData] = useState<object | null>(null);
-  const [countdown, setCountdown] = useState(AUTO_REDIRECT_SEC);
   const [pushRegistered, setPushRegistered] = useState(false);
   const [pushRegistering, setPushRegistering] = useState(false);
 
@@ -34,73 +32,54 @@ export function OrderDone() {
     }
   };
 
-  useEffect(() => {
-    fetch('/lottie/success.json')
-      .then((res) => res.json())
-      .then(setAnimationData)
-      .catch(() => setAnimationData(null));
-  }, []);
-
-  useEffect(() => {
-    if (countdown <= 0) {
-      navigate('/', { replace: true });
-      return;
-    }
-    const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [countdown, navigate]);
-
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] p-4 sm:p-6 text-center">
-      <div className="w-48 h-48 mb-4 flex items-center justify-center">
-        {animationData ? (
-          <Lottie
-            animationData={animationData}
-            loop={false}
-            style={{ width: 192, height: 192 }}
-          />
-        ) : (
-          <div className="w-24 h-24 rounded-full bg-kiosk-primary flex items-center justify-center text-3xl text-kiosk-text">
-            ✓
-          </div>
-        )}
-      </div>
-      <h2 className="text-xl font-semibold text-kiosk-text mb-2">주문이 완료되었습니다.</h2>
-      <p className="text-kiosk-textSecondary mb-1">주문번호</p>
-      <p className="text-2xl font-bold text-kiosk-primary mb-2">{orderNo}</p>
-      {pointsEarned && (
-        <p className="text-sm text-kiosk-textSecondary mb-2">
-          적립 포인트 <span className="font-semibold text-kiosk-primary">+{Number(pointsEarned).toLocaleString()}P</span>
-        </p>
-      )}
-      <p className="text-sm text-kiosk-textSecondary mb-4">준비가 완료되면 알려드리겠습니다.</p>
-      <p className="text-sm text-kiosk-textSecondary mb-4">
-        <span className="font-medium text-kiosk-text">{countdown}</span>초 뒤 자동으로 홈으로 이동합니다.
-      </p>
-      <div className="flex flex-col gap-3 w-full max-w-xs">
-        {orderId && !pushRegistered && (
-          <Button
-            theme="kiosk"
-            variant="secondary"
-            fullWidth
-            onClick={handleEnablePush}
-            disabled={pushRegistering}
-          >
-            {pushRegistering ? '등록 중…' : '주문 상태 알림 받기'}
-          </Button>
-        )}
-        {orderId && user && (
-          <Link to={`/mypage/orders/${orderId}`} className="block">
-            <Button theme="kiosk" variant="secondary" fullWidth>
-              주문 상태 보기
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+      <div className="relative w-full max-w-md rounded-2xl bg-white shadow-xl text-center overflow-hidden">
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="absolute top-4 right-4 p-1 rounded hover:bg-gray-100 text-kiosk-text"
+          aria-label="닫기"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <div className="pt-12 pb-6 px-6">
+          <h2 className="text-xl font-bold text-kiosk-text mb-6">
+            {t('paymentCompleteTitle')}
+          </h2>
+
+          {orderNo && (
+            <p className="text-sm text-kiosk-textSecondary mb-1">{t('orderNumberLabel')}</p>
+          )}
+          <p className="text-lg font-semibold text-kiosk-primary mb-2">{orderNo || '-'}</p>
+          {pointsEarned && (
+            <p className="text-sm text-kiosk-textSecondary mb-4">
+              {t('pointsEarned')} <span className="font-semibold text-kiosk-primary">+{Number(pointsEarned).toLocaleString()}P</span>
+            </p>
+          )}
+        </div>
+
+        <div className="px-6 pb-8 space-y-3">
+          {orderId && !pushRegistered && (
+            <button
+              type="button"
+              onClick={handleEnablePush}
+              disabled={pushRegistering}
+              className="block w-full py-2.5 text-sm text-kiosk-textSecondary hover:text-kiosk-text"
+            >
+              {pushRegistering ? t('registeringPush') : t('registerPush')}
+            </button>
+          )}
+          <Link to="/" className="block w-full py-2.5 text-sm text-kiosk-textSecondary hover:text-kiosk-text">
+            {t('addMoreOrders')}
+          </Link>
+          <Link to={orderId && user ? `/mypage/orders/${orderId}` : '/mypage/orders'} className="block w-full">
+            <Button theme="kiosk" fullWidth className="bg-kiosk-primary text-kiosk-text font-semibold">
+              {t('viewOrderHistory')}
             </Button>
           </Link>
-        )}
-        <Link to="/" className="block">
-          <Button theme="kiosk" fullWidth>
-            확인
-          </Button>
-        </Link>
+        </div>
       </div>
     </div>
   );

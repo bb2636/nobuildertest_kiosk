@@ -6,8 +6,9 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { NETWORK_ERROR_EVENT } from '../api/client';
 
-export const NETWORK_ERROR_EVENT = 'app:network-error';
+export { NETWORK_ERROR_EVENT };
 
 type NetworkErrorContextValue = {
   showBanner: boolean;

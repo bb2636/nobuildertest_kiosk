@@ -160,8 +160,8 @@ authRouter.post('/refresh', async (req, res) => {
       { expiresIn: ACCESS_EXPIRES_IN }
     );
 
-    // 로테이션: 기존 refresh 삭제 후 새로 발급
-    await prisma.refreshToken.delete({ where: { id: row.id } });
+    // 로테이션: 기존 refresh 삭제 후 새로 발급 (deleteMany는 레코드 없어도 에러 안 남)
+    await prisma.refreshToken.deleteMany({ where: { id: row.id } });
     const newRefreshValue = createRefreshToken();
     const expiresAt = refreshExpiresAt();
     await prisma.refreshToken.create({
