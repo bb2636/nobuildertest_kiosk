@@ -72,8 +72,8 @@ export function MyPageAccount() {
   return (
     <div className="flex flex-col min-h-[100dvh] bg-[#f5f5f5]">
       <header className="flex items-center justify-between px-4 py-3 bg-white border-b border-kiosk-border">
-        <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 text-kiosk-text">
-          &lt;
+        <button type="button" onClick={() => navigate(-1)} className="p-3 -ml-2 text-kiosk-text text-xl font-medium min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="뒤로 가기">
+          ‹
         </button>
         <h1 className="text-lg font-semibold text-kiosk-text">계정정보</h1>
         <span className="w-8" />

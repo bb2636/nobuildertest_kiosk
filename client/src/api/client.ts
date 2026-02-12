@@ -1,12 +1,19 @@
-import { AUTH_STORAGE_KEY, type AuthUser } from '../contexts/AuthContext';
+import { AUTH_STORAGE_KEY_ADMIN, AUTH_STORAGE_KEY_KIOSK, type AuthUser } from '../contexts/AuthContext';
 
 const API = '/api';
 
 type StoredAuth = { accessToken?: string; refreshToken?: string; user?: unknown };
 
+/** 현재 경로가 /admin 이면 관리자용 키, 아니면 유저(키오스크)용 키 사용 → 탭별로 관리자/유저 로그인 분리 */
+function getAuthStorageKey(): string {
+  if (typeof window === 'undefined') return AUTH_STORAGE_KEY_KIOSK;
+  return window.location.pathname.startsWith('/admin') ? AUTH_STORAGE_KEY_ADMIN : AUTH_STORAGE_KEY_KIOSK;
+}
+
 function getStored(): StoredAuth | null {
   try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    const key = getAuthStorageKey();
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
     return JSON.parse(raw) as StoredAuth;
   } catch {
@@ -25,7 +32,8 @@ const AUTH_SESSION_EXPIRED = 'auth:sessionExpired';
 export const NETWORK_ERROR_EVENT = 'app:network-error';
 
 function clearAuth(): void {
-  localStorage.removeItem(AUTH_STORAGE_KEY);
+  const key = getAuthStorageKey();
+  localStorage.removeItem(key);
   window.dispatchEvent(new CustomEvent(AUTH_SESSION_EXPIRED));
 }
 
@@ -55,7 +63,7 @@ async function refreshAndSave(): Promise<string | null> {
   const body = (await res.json()) as { accessToken: string; refreshToken: string };
   if (!body.accessToken || !body.refreshToken) return null;
   const next = { ...data, accessToken: body.accessToken, refreshToken: body.refreshToken };
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
+  localStorage.setItem(getAuthStorageKey(), JSON.stringify(next));
   return body.accessToken;
 }
 
@@ -119,7 +127,11 @@ export const api = {
   },
 
   categories: {
-    list: () => request<{ id: string; name: string; sortOrder: number }[]>('/categories'),
+    list: (params?: { updatedAfter?: string }) =>
+      request<{ id: string; name: string; sortOrder: number }[]>(
+        '/categories',
+        params?.updatedAfter ? { params: { updatedAfter: params.updatedAfter } } : undefined
+      ),
     create: (body: { name: string; isActive?: boolean; sortOrder?: number }) =>
       request<{ id: string }>('/categories', { method: 'POST', body: JSON.stringify(body) }),
     update: (id: string, body: { name?: string; isActive?: boolean; sortOrder?: number }) =>
@@ -243,7 +255,7 @@ export const api = {
       getOrders: (userId: string) => request<AdminOrderListItem[]>(`/admin/users/${userId}/orders`),
     },
     orders: {
-      list: (params?: { status?: string; from?: string; to?: string }) =>
+      list: (params?: { status?: string; from?: string; to?: string; updatedAfter?: string }) =>
         request<AdminOrderListItem[]>(
           '/admin/orders',
           params && Object.keys(params).length > 0
@@ -257,9 +269,10 @@ export const api = {
         }),
     },
     products: {
-      list: () =>
+      list: (params?: { updatedAfter?: string }) =>
         request<(MenuItem & { category: { id: string; name: string }; isAvailable?: boolean })[]>(
-          '/admin/products'
+          '/admin/products',
+          params?.updatedAfter ? { params: { updatedAfter: params.updatedAfter } } : undefined
         ),
       create: (body: {
         categoryId: string;
@@ -286,7 +299,11 @@ export const api = {
       delete: (id: string) => request<void>(`/admin/products/${id}`, { method: 'DELETE' }),
     },
     categories: {
-      list: () => request<{ id: string; name: string; sortOrder: number }[]>('/categories'),
+      list: (params?: { updatedAfter?: string }) =>
+        request<{ id: string; name: string; sortOrder: number }[]>(
+          '/categories',
+          params?.updatedAfter ? { params: { updatedAfter: params.updatedAfter } } : undefined
+        ),
       create: (body: { name: string; isActive?: boolean; sortOrder?: number }) =>
         request<{ id: string }>('/categories', { method: 'POST', body: JSON.stringify(body) }),
       update: (id: string, body: { name?: string; isActive?: boolean; sortOrder?: number }) =>
@@ -354,6 +371,8 @@ export type UserOrderItem = {
   orderNo: string;
   orderNumber: number | null;
   status: string;
+  /** PENDING = 결제 미완료(토스 결제 실패 등), PAID = 결제 완료 */
+  paymentStatus?: 'PENDING' | 'PAID' | 'REFUNDED';
   orderType: 'DINE_IN' | 'TAKE_OUT';
   totalAmount: number;
   createdAt: string;

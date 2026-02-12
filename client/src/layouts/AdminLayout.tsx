@@ -134,7 +134,7 @@ export function AdminLayout() {
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
-            className="p-2 -ml-2 rounded-lg hover:bg-admin-surface text-admin-text"
+            className="p-3 -ml-2 rounded-lg hover:bg-admin-surface text-admin-text min-w-[44px] min-h-[44px] flex items-center justify-center"
             aria-label="메뉴 열기"
           >
             <Menu className="h-6 w-6" />

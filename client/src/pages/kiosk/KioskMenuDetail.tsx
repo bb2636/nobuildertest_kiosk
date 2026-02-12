@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, type MenuItem } from '../../api/client';
 import { useKioskCart } from '../../contexts/KioskCartContext';
@@ -28,8 +28,11 @@ const BEAN_DESCRIPTIONS_EN: Record<string, string> = {
 export function KioskMenuDetail() {
   const { t, i18n } = useTranslation('kiosk');
   const { itemId } = useParams<{ itemId: string }>();
+  const [searchParams] = useSearchParams();
+  const editCartIndex = searchParams.get('editCartIndex');
+  const cartIndex = editCartIndex != null ? parseInt(editCartIndex, 10) : null;
   const navigate = useNavigate();
-  const { add } = useKioskCart();
+  const { add, replaceLine, lines } = useKioskCart();
   const [item, setItem] = useState<MenuItem | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [selectedOptionIds, setSelectedOptionIds] = useState<Record<string, string>>({});
@@ -50,6 +53,19 @@ export function KioskMenuDetail() {
     const catName = item.category?.name ?? '';
     const isGelatoCat = catName === '젤라또';
     const isDessertCat = catName === '디저트';
+    const line = cartIndex != null && Number.isInteger(cartIndex) && lines[cartIndex]?.productId === item.id ? lines[cartIndex] : null;
+    if (line) {
+      if (line.temperature) setTemperature(line.temperature);
+      if (line.shotCount != null) setShotCount(line.shotCount);
+      setQuantity(line.quantity);
+      const byType: Record<string, string> = {};
+      line.optionIds.forEach((optId) => {
+        const opt = item.options.find((o) => o.id === optId);
+        if (opt) byType[opt.type] = optId;
+      });
+      setSelectedOptionIds(byType);
+      return;
+    }
     setShotCount(item.defaultShotCount ?? 2);
     if (isDessertCat) {
       setSelectedOptionIds({});
@@ -71,7 +87,7 @@ export function KioskMenuDetail() {
       if (opts[0]) initial[type] = opts[0].id;
     });
     setSelectedOptionIds(initial);
-  }, [item?.id]);
+  }, [item?.id, cartIndex, lines]);
 
   if (!item) {
     return (
@@ -108,8 +124,14 @@ export function KioskMenuDetail() {
     i18n.language === 'en' ? (t(`optionType_${optionTypeKey(type)}`) || type) : type;
   const getOptionValueLabel = (name: string) => {
     if (i18n.language !== 'en') return name;
+    const keyFull = `optionValue_${name}`;
     const first = name.split(' ')[0] ?? name;
-    return t(`optionValue_${name}`) || t(`optionValue_${first}`) || name;
+    const keyFirst = `optionValue_${first}`;
+    const full = t(keyFull);
+    const firstVal = t(keyFirst);
+    if (full && full !== keyFull) return full;
+    if (firstVal && firstVal !== keyFirst) return firstVal;
+    return name;
   };
   const getBeanDescription = (key: string) =>
     i18n.language === 'en' ? BEAN_DESCRIPTIONS_EN[key] : BEAN_DESCRIPTIONS_KO[key];
@@ -145,40 +167,55 @@ export function KioskMenuDetail() {
 
   const addToCart = () => {
     const displayName = i18n.language === 'en' && item.englishName ? item.englishName : item.name;
-    add({
+    const linePayload = {
       productId: item.id,
       name: displayName,
       quantity,
       optionIds: selectedIdsForCart,
       unitPrice,
-    });
-    navigate('/');
+      imageUrl: item.images?.[0]?.url,
+      temperature: isGelatoOrDessert ? undefined : temperature,
+      shotCount: isGelatoOrDessert ? undefined : shotCount,
+    };
+    if (cartIndex != null && Number.isInteger(cartIndex) && cartIndex >= 0 && lines[cartIndex]?.productId === item.id) {
+      replaceLine(cartIndex, linePayload);
+      navigate('/cart');
+    } else {
+      add(linePayload);
+      navigate('/');
+    }
   };
 
-  const selectedOptionLabels = isDessert
+  /** 다국어 모드에서 "선택한 옵션" 요약에 사용할 이미 번역된 라벨 배열 */
+  const selectedOptionSummaryParts = isDessert
     ? []
     : isGelato
       ? cupConeOptionId
         ? (() => {
             const opt = item.options.find((o) => o.id === cupConeOptionId);
-            return opt ? [opt.name] : [];
+            return opt ? [getOptionValueLabel(opt.name)] : [];
           })()
         : []
-      : (Object.entries(selectedOptionIds)
-          .filter(([type, id]) => id && !isShotType(type))
-          .map(([type, id]) => {
-            const opt = item.options.find((o) => o.id === id);
-            return opt ? `${type.replace(/ \(.*\)/, '')} ${opt.name}` : null;
-          })
-          .filter(Boolean) as string[]);
+      : (() => {
+          const tempPart = i18n.language === 'en' ? `Temperature ${temperature}` : `온도 ${temperature}`;
+          const shotPart = i18n.language === 'en' ? t('shotDefault', { count: shotCount }) : `샷 ${shotCount}`;
+          const optionParts = Object.entries(selectedOptionIds)
+            .filter(([type, id]) => id && !isShotType(type))
+            .map(([type, id]) => {
+              const opt = item.options.find((o) => o.id === id);
+              return opt ? `${getOptionTypeLabel(type.replace(/ \(.*\)/, '').trim())} ${getOptionValueLabel(opt.name)}` : null;
+            })
+            .filter(Boolean) as string[];
+          return [tempPart, shotPart, ...optionParts];
+        })();
 
   const nutrition = parseCalories(item.calories);
 
   return (
     <div className="flex flex-col min-h-[100dvh] bg-white">
       <header className="flex items-center justify-between px-4 md:px-6 py-3 bg-white border-b border-gray-200">
-        <button type="button" onClick={() => navigate(-1)} className="text-black p-2 -ml-2 text-xl">
-          ←
+        <button type="button" onClick={() => navigate(-1)} className="text-black p-3 -ml-2 text-xl font-medium min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="뒤로 가기">
+          ‹
         </button>
         <Link to="/" className="text-lg font-semibold text-black">
           FELN
@@ -448,13 +485,11 @@ export function KioskMenuDetail() {
             return null;
           })}
 
-        {((isGelato && selectedOptionLabels.length > 0) || !isGelatoOrDessert) && (
+        {((isGelato && selectedOptionSummaryParts.length > 0) || (!isGelatoOrDessert && selectedOptionSummaryParts.length > 0)) && (
           <div className="px-4 md:px-6 py-3 border-t border-gray-100">
             <p className="text-xs text-gray-500 mb-1">{t('optionChanged')}</p>
             <p className="text-sm text-black">
-              {isGelato
-                ? selectedOptionLabels.join(' · ')
-                : [`온도 ${temperature}`, `샷 ${shotCount}`, ...selectedOptionLabels].filter(Boolean).join(' · ')}
+              {selectedOptionSummaryParts.join(' · ')}
             </p>
           </div>
         )}

@@ -3,18 +3,65 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { useKioskCart } from '../../contexts/KioskCartContext';
+import type { KioskCartLine } from '../../contexts/KioskCartContext';
 import { Button } from '../../components/ui/Button';
-import { api } from '../../api/client';
+import { api, type MenuItem } from '../../api/client';
 import { filterValidCartLines } from '../../utils/cartValidation';
 
 const CART_CHANGED_MESSAGE = '메뉴가 변경되어 일부 상품이 장바구니에서 제거되었습니다.';
 
+function getOptionValueLabel(name: string, t: (key: string) => string, lang: string): string {
+  if (lang !== 'en') return name;
+  const keyFull = `optionValue_${name}`;
+  const first = name.split(' ')[0] ?? name;
+  const keyFirst = `optionValue_${first}`;
+  const full = t(keyFull);
+  const firstVal = t(keyFirst);
+  if (full && full !== keyFull) return full;
+  if (firstVal && firstVal !== keyFirst) return firstVal;
+  return name;
+}
+
+/** 타입별로 하나씩만 표시 (샷·시럽·우유 등 누적 없이 통합) */
+function getOptionSummary(
+  line: KioskCartLine,
+  item: MenuItem | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string,
+  lang: string
+): string {
+  if (!item) return '';
+  const optionTypeKey = (type: string) => type.replace(/ \(.*\)/, '').trim();
+  const getTypeLabel = (type: string) => (lang === 'en' ? (t(`optionType_${optionTypeKey(type)}`) || type) : type);
+  const isShotType = (type: string) => type.includes('샷');
+  const parts: string[] = [];
+  if (line.temperature) parts.push(lang === 'en' ? `Temperature ${line.temperature}` : `온도 ${line.temperature}`);
+  if (line.shotCount != null) parts.push(lang === 'en' ? t('shotDefault', { count: line.shotCount }) : `샷 ${line.shotCount}`);
+  const byType = new Map<string, string>();
+  line.optionIds.forEach((optId) => {
+    const opt = item.options.find((o) => o.id === optId);
+    if (opt && !isShotType(opt.type)) {
+      const label = `${getTypeLabel(opt.type)} ${getOptionValueLabel(opt.name, t, lang)}`;
+      byType.set(opt.type, label);
+    }
+  });
+  const order = ['원두', '우유', '시럽', '휘핑크림', '컵/콘'];
+  order.forEach((type) => {
+    const label = byType.get(type);
+    if (label) parts.push(label);
+  });
+  byType.forEach((label, type) => {
+    if (!order.includes(type)) parts.push(label);
+  });
+  return parts.join(' | ');
+}
+
 export function KioskCart() {
-  const { t } = useTranslation('kiosk');
+  const { t, i18n } = useTranslation('kiosk');
   const navigate = useNavigate();
   const location = useLocation();
   const { lines, remove, updateQuantity, totalPrice, setLinesFromValidation } = useKioskCart();
   const [cartChangedMessage, setCartChangedMessage] = useState<string | null>(null);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const message = (location.state as { cartChangedMessage?: string } | null)?.cartChangedMessage ?? cartChangedMessage;
 
@@ -22,8 +69,9 @@ export function KioskCart() {
     if (lines.length === 0) return;
     api.menu
       .list()
-      .then((menuItems) => {
-        const valid = filterValidCartLines(lines, menuItems);
+      .then((items) => {
+        setMenuItems(items);
+        const valid = filterValidCartLines(lines, items);
         if (valid.length < lines.length) {
           setLinesFromValidation(valid);
           setCartChangedMessage(CART_CHANGED_MESSAGE);
@@ -149,12 +197,26 @@ export function KioskCart() {
                   className="rounded border-kiosk-border text-kiosk-primary w-4 h-4 mt-0.5"
                 />
               </label>
-              <div className="w-14 h-14 shrink-0 rounded-full overflow-hidden bg-kiosk-surface" />
+              <div className="w-14 h-14 shrink-0 rounded-full overflow-hidden bg-gray-100">
+                {line.imageUrl ? (
+                  <img src={line.imageUrl} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                ) : null}
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-kiosk-text truncate">{line.name}</p>
-                <p className="text-xs text-kiosk-textSecondary mt-0.5">
-                  {(line.unitPrice * line.quantity).toLocaleString()}{t('currencyUnit')}
-                </p>
+                {(line.optionIds.length > 0 || line.temperature != null || line.shotCount != null) && (
+                  <>
+                    <p className="text-xs text-kiosk-textSecondary mt-1">
+                      {getOptionSummary(line, menuItems.find((m) => m.id === line.productId), t, i18n.language)}
+                    </p>
+                    <Link
+                      to={`/menu/${line.productId}?editCartIndex=${index}`}
+                      className="inline-block mt-1 text-xs text-kiosk-primary hover:underline"
+                    >
+                      {t('optionChange')}
+                    </Link>
+                  </>
+                )}
                 <div className="flex items-center gap-2 mt-2">
                   <div className="inline-flex items-center rounded-lg border border-kiosk-border bg-white">
                     <button

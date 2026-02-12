@@ -5,11 +5,17 @@ import { requireAdmin } from '../middleware/requireAdmin.js';
 
 export const categoriesRouter = Router();
 
-/** GET /api/categories - 활성 카테고리 목록 (키오스크·메뉴용, 공개) */
-categoriesRouter.get('/', async (_req, res) => {
+/** GET /api/categories - 활성 카테고리 목록. 쿼리: updatedAfter(ISO) - 변경분만 조회 시 사용 */
+categoriesRouter.get('/', async (req, res) => {
   try {
+    const updatedAfterParam = (req.query.updatedAfter as string)?.trim();
+    const where: { isActive: boolean; updatedAt?: { gt: Date } } = { isActive: true };
+    if (updatedAfterParam) {
+      const updatedAfter = new Date(updatedAfterParam);
+      if (!Number.isNaN(updatedAfter.getTime())) where.updatedAt = { gt: updatedAfter };
+    }
     const list = await prisma.category.findMany({
-      where: { isActive: true },
+      where,
       orderBy: { sortOrder: 'asc' },
       select: { id: true, name: true, sortOrder: true },
     });

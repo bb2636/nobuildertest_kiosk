@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -10,11 +10,29 @@ type AdminProduct = {
   name: string;
   categoryId: string;
   basePrice: number;
+  sortOrder?: number;
   isAvailable?: boolean;
   category?: { id: string; name: string };
 };
 
 type CategoryItem = { id: string; name: string; sortOrder: number };
+
+function mergeProductsInto(cache: AdminProduct[], delta: AdminProduct[]): AdminProduct[] {
+  const byId = new Map(cache.map((i) => [i.id, i]));
+  for (const i of delta) byId.set(i.id, i);
+  return Array.from(byId.values()).sort(
+    (a, b) =>
+      a.categoryId === b.categoryId
+        ? (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+        : a.categoryId.localeCompare(b.categoryId)
+  );
+}
+
+function mergeCategoriesInto(cache: CategoryItem[], delta: CategoryItem[]): CategoryItem[] {
+  const byId = new Map(cache.map((c) => [c.id, c]));
+  for (const c of delta) byId.set(c.id, c);
+  return Array.from(byId.values()).sort((a, b) => a.sortOrder - b.sortOrder);
+}
 
 export function AdminMenu() {
   const [items, setItems] = useState<AdminProduct[]>([]);
@@ -30,14 +48,59 @@ export function AdminMenu() {
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const lastProductsFetchRef = useRef<string | null>(null);
+  const lastCategoriesFetchRef = useRef<string | null>(null);
 
-  const loadItems = () => api.admin.products.list().then(setItems);
-  const loadCategories = () => api.admin.categories.list().then(setCategories);
+  const loadItems = useCallback(() => {
+    api.admin.products.list().then((list) => {
+      setItems(list as AdminProduct[]);
+      lastProductsFetchRef.current = new Date().toISOString();
+    });
+  }, []);
+  const loadCategories = useCallback(() => {
+    api.admin.categories.list().then((list) => {
+      setCategories(list);
+      lastCategoriesFetchRef.current = new Date().toISOString();
+    });
+  }, []);
+
+  const revalidate = useCallback(() => {
+    const sinceProducts = lastProductsFetchRef.current;
+    const sinceCategories = lastCategoriesFetchRef.current;
+    const promises: Promise<void>[] = [];
+    if (sinceProducts) {
+      promises.push(
+        api.admin.products.list({ updatedAfter: sinceProducts }).then((delta) => {
+          setItems((prev) => mergeProductsInto(prev, delta as AdminProduct[]));
+          lastProductsFetchRef.current = new Date().toISOString();
+        })
+      );
+    }
+    if (sinceCategories) {
+      promises.push(
+        api.admin.categories.list({ updatedAfter: sinceCategories }).then((delta) => {
+          setCategories((prev) => mergeCategoriesInto(prev, delta));
+          lastCategoriesFetchRef.current = new Date().toISOString();
+        })
+      );
+    }
+    Promise.all(promises).catch(() => {});
+  }, []);
 
   useEffect(() => {
     loadItems();
     loadCategories();
-  }, []);
+  }, [loadItems, loadCategories]);
+
+  useEffect(() => {
+    const interval = setInterval(revalidate, 30_000);
+    const onFocus = () => revalidate();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [revalidate]);
 
   useEffect(() => {
     if (modalOpen && categories.length > 0 && !formCategoryId) {

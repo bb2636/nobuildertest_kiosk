@@ -111,10 +111,10 @@ export function MyPageOrders() {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="p-2 -ml-2 text-kiosk-text"
+            className="p-3 -ml-2 text-kiosk-text text-xl font-medium min-w-[44px] min-h-[44px] flex items-center justify-center"
             aria-label="뒤로"
           >
-            &lt;
+            ‹
           </button>
           <OrderHistoryPopover />
         </div>
@@ -143,7 +143,7 @@ export function MyPageOrders() {
             <button
               type="button"
               onClick={() => setFilterOpen(true)}
-              className="rounded-lg border border-kiosk-border bg-kiosk-surface px-3 py-1.5 text-kiosk-text"
+              className="rounded-lg border border-kiosk-border bg-white px-3 py-1.5 text-kiosk-text hover:bg-gray-50"
             >
               기간설정
             </button>
@@ -188,7 +188,7 @@ export function MyPageOrders() {
                 <button
                   type="button"
                   onClick={() => setFilterOpen(false)}
-                  className="flex-1 py-2 rounded-lg bg-kiosk-primary text-sm text-kiosk-text"
+                  className="flex-1 py-2 rounded-lg border border-kiosk-border bg-white text-sm text-kiosk-text hover:bg-gray-50"
                 >
                   닫기
                 </button>
@@ -239,7 +239,7 @@ export function MyPageOrders() {
                 <button
                   type="button"
                   onClick={() => setStatusFilter('ALL')}
-                  className="mt-4 px-4 py-2 rounded-lg bg-kiosk-primary text-white text-sm font-medium"
+                  className="mt-4 px-4 py-2 rounded-lg border border-kiosk-border bg-white text-kiosk-text text-sm font-medium hover:bg-gray-50"
                 >
                   전체로 보기
                 </button>
@@ -298,6 +298,15 @@ export function MyPageOrders() {
                     {hasMoreItems(order) ? ' 외' : ''}
                     {order.status === 'CANCELED' && (
                       <span className="text-kiosk-error ml-1">취소됨</span>
+                    )}
+                    {order.paymentStatus === 'PENDING' && order.status !== 'CANCELED' && (
+                      <span className="text-amber-600 ml-1">결제 대기</span>
+                    )}
+                    {order.status === 'PICKUP_READY' && (
+                      <span className="text-kiosk-primary ml-1">픽업대기</span>
+                    )}
+                    {order.status === 'COMPLETED' && (
+                      <span className="text-emerald-600 ml-1">완료</span>
                     )}
                   </p>
                   <p className="text-xs text-kiosk-textSecondary mt-0.5">

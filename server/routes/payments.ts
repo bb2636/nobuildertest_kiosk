@@ -30,13 +30,22 @@ paymentsRouter.post('/confirm', async (req, res) => {
       return res.status(503).json({ error: 'TOSSPAYMENTS_SECRET_KEY not configured' });
     }
 
-    const body = req.body as { paymentKey?: string; orderId?: string; amount?: number };
+    const body = req.body as { paymentKey?: string; orderId?: string; amount?: number | string };
     const paymentKey = typeof body.paymentKey === 'string' ? body.paymentKey.trim() : '';
     const orderId = typeof body.orderId === 'string' ? body.orderId.trim() : '';
-    const amount = typeof body.amount === 'number' ? body.amount : Number(body.amount);
+    const amountRaw = body.amount;
+    const amount =
+      typeof amountRaw === 'number'
+        ? amountRaw
+        : typeof amountRaw === 'string'
+          ? parseInt(amountRaw, 10)
+          : Number(amountRaw);
 
     if (!paymentKey || !orderId || !Number.isInteger(amount) || amount < 1) {
-      return res.status(400).json({ error: 'paymentKey, orderId, amount required' });
+      return res.status(400).json({
+        error: 'invalid_params',
+        message: '결제 정보가 올바르지 않습니다. paymentKey, orderId, amount를 확인해 주세요.',
+      });
     }
 
     const auth = Buffer.from(secretKey + ':', 'utf8').toString('base64');
@@ -50,10 +59,26 @@ paymentsRouter.post('/confirm', async (req, res) => {
     });
 
     if (!tossRes.ok) {
-      const errBody = await tossRes.json().catch(() => ({}));
+      const errBody = (await tossRes.json().catch(() => ({}))) as { code?: string; message?: string };
+      const tossMessage = errBody.message ?? tossRes.statusText;
+      console.error('[payments/confirm] 토스 승인 실패', tossRes.status, errBody);
+
+      if (errBody.code === 'ALREADY_PROCESSED_PAYMENT') {
+        const order = await prisma.order.findUnique({
+          where: { id: orderId },
+          select: { id: true, orderNo: true, paymentStatus: true },
+        });
+        if (order?.paymentStatus === PaymentStatus.PAID) {
+          return res.status(200).json({
+            orderNo: order.orderNo,
+            orderId: order.id,
+          });
+        }
+      }
+
       return res.status(400).json({
         error: 'toss_confirm_failed',
-        message: (errBody as { message?: string }).message ?? tossRes.statusText,
+        message: tossMessage || '토스 결제 승인에 실패했습니다. 결제 수단(카카오페이 등)에 따라 테스트 환경에서 제한될 수 있습니다.',
       });
     }
 
@@ -78,8 +103,12 @@ paymentsRouter.post('/confirm', async (req, res) => {
     if (order.paymentStatus !== PaymentStatus.PENDING) {
       return res.status(409).json({ error: 'order_already_paid_or_invalid' });
     }
-    if (order.totalAmount !== amount) {
-      return res.status(400).json({ error: 'amount_mismatch' });
+    const amountDiff = Math.abs(order.totalAmount - amount);
+    if (amountDiff > 1) {
+      return res.status(400).json({
+        error: 'amount_mismatch',
+        message: `결제 금액이 주문 금액과 일치하지 않습니다. (주문: ${order.totalAmount}, 결제: ${amount})`,
+      });
     }
 
     const totalAmount = Number(tossData.totalAmount) || amount;

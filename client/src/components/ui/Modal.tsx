@@ -99,7 +99,6 @@ export function Modal({
       <div
         className="absolute inset-0 bg-black/40"
         onClick={handleClose}
-        aria-hidden="true"
       />
       <div
         ref={contentRef}

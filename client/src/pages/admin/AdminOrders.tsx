@@ -24,6 +24,23 @@ function formatDateForInput(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+function buildOrderParams(status: string, from: string, to: string, updatedAfter?: string) {
+  const params: { status?: string; from?: string; to?: string; updatedAfter?: string } = {};
+  if (status !== 'ALL') params.status = status;
+  if (from) params.from = from;
+  if (to) params.to = to;
+  if (updatedAfter) params.updatedAfter = updatedAfter;
+  return params;
+}
+
+function mergeOrdersInto(cache: AdminOrderListItem[], delta: AdminOrderListItem[]): AdminOrderListItem[] {
+  const byId = new Map(cache.map((o) => [o.id, o]));
+  for (const o of delta) byId.set(o.id, o);
+  return Array.from(byId.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
 export function AdminOrders() {
   const [orders, setOrders] = useState<AdminOrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,19 +59,18 @@ export function AdminOrders() {
   const [listError, setListError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const statusFilterRef = useRef<HTMLDivElement>(null);
+  const lastFullFetchRef = useRef<string | null>(null);
 
-  const fetchOrders = () => {
+  const fetchOrdersFull = () => {
     setLoading(true);
     setListError(null);
-    const params: { status?: string; from?: string; to?: string } = {};
-    if (statusFilter !== 'ALL') params.status = statusFilter;
-    if (dateFrom) params.from = dateFrom;
-    if (dateTo) params.to = dateTo;
+    const params = buildOrderParams(statusFilter, dateFrom, dateTo);
     api.admin.orders
       .list(params)
       .then((list) => {
         setOrders(list);
         setListError(null);
+        lastFullFetchRef.current = new Date().toISOString();
       })
       .catch((e) => {
         setOrders([]);
@@ -63,8 +79,31 @@ export function AdminOrders() {
       .finally(() => setLoading(false));
   };
 
+  const revalidateOrders = () => {
+    const since = lastFullFetchRef.current;
+    if (!since) return;
+    const params = buildOrderParams(statusFilter, dateFrom, dateTo, since);
+    api.admin.orders
+      .list(params)
+      .then((delta) => {
+        setOrders((prev) => mergeOrdersInto(prev, delta));
+        lastFullFetchRef.current = new Date().toISOString();
+      })
+      .catch(() => {});
+  };
+
   useEffect(() => {
-    fetchOrders();
+    fetchOrdersFull();
+  }, [statusFilter, dateFrom, dateTo]);
+
+  useEffect(() => {
+    const interval = setInterval(revalidateOrders, 30_000);
+    const onFocus = () => revalidateOrders();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {

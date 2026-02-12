@@ -1,23 +1,57 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
 import { Modal } from '../../components/ui/Modal';
 
-type Category = { id: string; name: string; isActive: boolean; sortOrder: number };
+type Category = { id: string; name: string; isActive?: boolean; sortOrder: number };
+
+function mergeCategoriesInto(cache: Category[], delta: Category[]): Category[] {
+  const byId = new Map(cache.map((c) => [c.id, c]));
+  for (const c of delta) byId.set(c.id, c);
+  return Array.from(byId.values()).sort((a, b) => a.sortOrder - b.sortOrder);
+}
 
 export function AdminCategories() {
   const [list, setList] = useState<Category[]>([]);
   const [modal, setModal] = useState<'add' | 'edit' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const lastFetchRef = useRef<string | null>(null);
 
-  const load = () => api.categories.list().then((r) => setList(r as Category[]));
+  const load = useCallback(() => {
+    api.categories.list().then((r) => {
+      setList(r as Category[]);
+      lastFetchRef.current = new Date().toISOString();
+    });
+  }, []);
+
+  const revalidate = useCallback(() => {
+    const since = lastFetchRef.current;
+    if (!since) return;
+    api.categories
+      .list({ updatedAfter: since })
+      .then((delta) => {
+        setList((prev) => mergeCategoriesInto(prev, delta as Category[]));
+        lastFetchRef.current = new Date().toISOString();
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  useEffect(() => {
+    const interval = setInterval(revalidate, 30_000);
+    const onFocus = () => revalidate();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [revalidate]);
 
   const openAdd = () => {
     setName('');

@@ -33,8 +33,8 @@ export function OrderDone() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-      <div className="relative w-full max-w-md rounded-2xl bg-white shadow-xl text-center overflow-hidden">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true" aria-labelledby="order-done-title">
+      <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl text-center overflow-hidden">
         <button
           type="button"
           onClick={() => navigate('/')}
@@ -45,7 +45,7 @@ export function OrderDone() {
         </button>
 
         <div className="pt-12 pb-6 px-6">
-          <h2 className="text-xl font-bold text-kiosk-text mb-6">
+          <h2 id="order-done-title" className="text-xl font-bold text-kiosk-text mb-6">
             {t('paymentCompleteTitle')}
           </h2>
 

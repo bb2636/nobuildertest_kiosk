@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import { api, type UserOrderItem } from '../../api/client';
@@ -12,23 +12,82 @@ const STATUS_LABEL: Record<string, string> = {
   CANCELED: '취소',
 };
 
+const ORDER_STATUS_SEEN_KEY = 'kiosk_order_status_seen';
+const POLL_INTERVAL_MS = 20000;
+
+function loadLastSeen(): Record<string, string> {
+  try {
+    const raw = sessionStorage.getItem(ORDER_STATUS_SEEN_KEY);
+    if (!raw) return {};
+    const data = JSON.parse(raw) as Record<string, string>;
+    return typeof data === 'object' && data !== null ? data : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveLastSeen(orders: UserOrderItem[]) {
+  const seen: Record<string, string> = {};
+  orders.forEach((o) => { seen[o.id] = o.status; });
+  sessionStorage.setItem(ORDER_STATUS_SEEN_KEY, JSON.stringify(seen));
+}
+
+function hasStatusChanged(list: UserOrderItem[], lastSeen: Record<string, string>): boolean {
+  for (const o of list) {
+    if (lastSeen[o.id] !== o.status) return true;
+  }
+  return false;
+}
+
 export function OrderHistoryPopover() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [orders, setOrders] = useState<UserOrderItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasNewChanges, setHasNewChanges] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const fetchOrders = useCallback(() => {
+    if (!user) return;
+    api.user
+      .orders({})
+      .then((list) => {
+        const slice = list.slice(0, 10);
+        setOrders(slice);
+        if (!open && slice.length > 0) {
+          const lastSeen = loadLastSeen();
+          if (Object.keys(lastSeen).length === 0) {
+            saveLastSeen(slice);
+          } else if (hasStatusChanged(slice, lastSeen)) {
+            setHasNewChanges(true);
+          }
+        }
+      })
+      .catch(() => setOrders([]));
+  }, [user, open]);
 
   useEffect(() => {
     if (!open || !user) return;
     setLoading(true);
     api.user
       .orders({})
-      .then((list) => setOrders(list.slice(0, 10)))
+      .then((list) => {
+        const slice = list.slice(0, 10);
+        setOrders(slice);
+        saveLastSeen(slice);
+        setHasNewChanges(false);
+      })
       .catch(() => setOrders([]))
       .finally(() => setLoading(false));
   }, [open, user]);
+
+  useEffect(() => {
+    if (!user || open) return;
+    fetchOrders();
+    const t = setInterval(fetchOrders, POLL_INTERVAL_MS);
+    return () => clearInterval(t);
+  }, [user, open, fetchOrders]);
 
   useEffect(() => {
     if (!open) return;
@@ -46,18 +105,31 @@ export function OrderHistoryPopover() {
     navigate(`/mypage/orders/${orderId}`);
   };
 
+  const handleToggleOpen = () => {
+    setOpen((o) => {
+      if (!o && orders.length > 0) {
+        saveLastSeen(orders);
+        setHasNewChanges(false);
+      }
+      return !o;
+    });
+  };
+
   if (!user) return null;
 
   return (
     <div className="relative" ref={containerRef}>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="p-2 text-kiosk-text hover:bg-kiosk-surface rounded-lg transition-colors"
+        onClick={handleToggleOpen}
+        className="relative p-2 text-kiosk-text hover:bg-kiosk-surface rounded-lg transition-colors"
         aria-label="주문내역"
         aria-expanded={open}
       >
         <Bell className="h-5 w-5" />
+        {hasNewChanges && (
+          <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" aria-hidden />
+        )}
       </button>
       {open && (
         <div className="absolute right-0 top-full z-50 mt-1 w-[280px] max-h-[70vh] overflow-auto rounded-xl border border-kiosk-border bg-white shadow-lg py-1">
@@ -83,10 +155,10 @@ export function OrderHistoryPopover() {
                       </span>
                       <span
                         className={`text-xs font-medium shrink-0 ${
-                          order.status === 'CANCELED' ? 'text-kiosk-error' : 'text-kiosk-primary'
+                          order.status === 'CANCELED' ? 'text-kiosk-error' : order.paymentStatus === 'PENDING' ? 'text-amber-600' : 'text-kiosk-primary'
                         }`}
                       >
-                        {STATUS_LABEL[order.status] ?? order.status}
+                        {order.paymentStatus === 'PENDING' && order.status !== 'CANCELED' ? '결제 대기' : (STATUS_LABEL[order.status] ?? order.status)}
                       </span>
                     </div>
                     <p className="text-xs text-kiosk-textSecondary mt-0.5">

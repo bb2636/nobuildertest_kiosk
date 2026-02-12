@@ -38,21 +38,21 @@ export function MyPage() {
 
   return (
     <div className="flex flex-col min-h-[100dvh] w-full bg-white">
-      <header className="flex items-center justify-between px-4 py-3 border-b border-kiosk-border shrink-0">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-[#e8c64a] shrink-0">
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="p-2 -ml-2 text-kiosk-text"
+          className="p-3 -ml-2 text-black text-xl font-medium min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label={t('backAria')}
         >
-          &lt;
+          ‹
         </button>
-        <h1 className="text-lg font-semibold text-kiosk-text">{t('mypageTitle')}</h1>
+        <h1 className="text-lg font-semibold text-black">{t('mypageTitle')}</h1>
         <OrderHistoryPopover />
       </header>
 
       <main className="flex-1 overflow-auto p-4 min-h-0">
-        <p className="text-base font-medium text-kiosk-text mb-4 sm:mb-6">
+        <p className="text-base font-medium text-black mb-4 sm:mb-6">
           {t('welcomeUser', { name: user.name })}
         </p>
 
@@ -61,28 +61,28 @@ export function MyPage() {
             <Link
               key={to}
               to={to}
-              className="flex flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-xl bg-kiosk-surface border border-kiosk-border py-4 sm:py-6 px-3 sm:px-4 hover:bg-[#fff9e0] transition-colors min-h-[72px] sm:min-h-0"
+              className="flex flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-xl bg-white border border-gray-200 py-4 sm:py-6 px-3 sm:px-4 hover:bg-gray-50 transition-colors min-h-[72px] sm:min-h-0"
             >
-              <Icon className="h-6 w-6 text-kiosk-primary" />
-              <span className="text-xs sm:text-sm font-medium text-kiosk-text text-center">{t(labelKey)}</span>
+              <Icon className="h-6 w-6 text-[#c9a227]" />
+              <span className="text-xs sm:text-sm font-medium text-black text-center">{t(labelKey)}</span>
             </Link>
           ))}
         </div>
 
         {pointInfo != null && (
-          <div className="rounded-xl bg-kiosk-surface border border-kiosk-border p-4 mb-6">
-            <h2 className="text-sm font-medium text-kiosk-textSecondary mb-2">{t('ownedPoints')}</h2>
-            <p className="text-lg font-semibold text-kiosk-text">{pointInfo.point.toLocaleString()}P</p>
-            <p className="text-xs text-kiosk-textSecondary mt-1">{t('mileageLabel')} {pointInfo.mileage.toLocaleString()}</p>
+          <div className="rounded-xl bg-white border border-gray-200 p-4 mb-6">
+            <h2 className="text-sm font-medium text-gray-500 mb-2">{t('ownedPoints')}</h2>
+            <p className="text-lg font-semibold text-black">{pointInfo.point.toLocaleString()}P</p>
+            <p className="text-xs text-gray-500 mt-1">{t('mileageLabel')} {pointInfo.mileage.toLocaleString()}</p>
           </div>
         )}
 
         <div className="flex justify-center pt-4">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="text-sm text-kiosk-textSecondary underline hover:text-kiosk-text"
-          >
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="text-sm text-gray-500 underline hover:text-black"
+        >
             {t('logout')}
           </button>
         </div>

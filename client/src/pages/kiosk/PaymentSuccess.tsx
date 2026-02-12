@@ -28,7 +28,6 @@ export function PaymentSuccess() {
     (async () => {
       try {
         const res = await api.payments.confirm({ paymentKey, orderId, amount });
-        if (cancelled) return;
         clear();
         const params = new URLSearchParams({ orderNo: res.orderNo });
         if (res.orderId) params.set('orderId', res.orderId);
@@ -36,7 +35,8 @@ export function PaymentSuccess() {
         navigate(`/order-done?${params.toString()}`, { replace: true });
       } catch (e) {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : '결제 승인에 실패했습니다.');
+        const msg = e instanceof Error ? e.message : '결제 승인에 실패했습니다.';
+        setError(msg);
       }
     })();
     return () => { cancelled = true; };

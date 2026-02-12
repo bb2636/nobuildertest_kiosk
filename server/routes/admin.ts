@@ -109,15 +109,20 @@ adminRouter.delete('/users/:id', async (req, res) => {
 
 // ========== 주문 내역 ==========
 
-/** GET /api/admin/orders - 주문 목록 (번호, 상품정보, 주문시간, 금액, 성함, 상태). 쿼리: status, from(YYYY-MM-DD), to(YYYY-MM-DD) */
+/** GET /api/admin/orders - 주문 목록. 쿼리: status, from, to, updatedAfter(ISO) - 변경분만 조회 시 사용 */
 adminRouter.get('/orders', async (req, res) => {
   try {
     const statusParam = (req.query.status as string)?.toUpperCase();
     const status = statusParam && statusParam !== 'ALL' ? (statusParam as OrderStatus) : undefined;
     const fromParam = (req.query.from as string)?.trim();
     const toParam = (req.query.to as string)?.trim();
+    const updatedAfterParam = (req.query.updatedAfter as string)?.trim();
 
-    const where: { status?: OrderStatus; createdAt?: { gte?: Date; lte?: Date } } = {};
+    const where: {
+      status?: OrderStatus;
+      createdAt?: { gte?: Date; lte?: Date };
+      updatedAt?: { gt: Date };
+    } = {};
     if (status) where.status = status;
     if (fromParam || toParam) {
       where.createdAt = {};
@@ -129,6 +134,10 @@ adminRouter.get('/orders', async (req, res) => {
         const to = new Date(toParam);
         if (!Number.isNaN(to.getTime())) where.createdAt.lte = new Date(to.setHours(23, 59, 59, 999));
       }
+    }
+    if (updatedAfterParam) {
+      const updatedAfter = new Date(updatedAfterParam);
+      if (!Number.isNaN(updatedAfter.getTime())) where.updatedAt = { gt: updatedAfter };
     }
 
     const orders = await prisma.order.findMany({
@@ -266,10 +275,17 @@ adminRouter.patch('/orders/:id', async (req, res) => {
 
 // ========== 메뉴 관리 ==========
 
-/** GET /api/admin/products - 메뉴(상품) 리스트 (카테고리 포함) */
-adminRouter.get('/products', async (_req, res) => {
+/** GET /api/admin/products - 메뉴(상품) 리스트. 쿼리: updatedAfter(ISO) - 변경분만 조회 시 사용 */
+adminRouter.get('/products', async (req, res) => {
   try {
+    const updatedAfterParam = (req.query.updatedAfter as string)?.trim();
+    const where: { updatedAt?: { gt: Date } } = {};
+    if (updatedAfterParam) {
+      const updatedAfter = new Date(updatedAfterParam);
+      if (!Number.isNaN(updatedAfter.getTime())) where.updatedAt = { gt: updatedAfter };
+    }
     const products = await prisma.product.findMany({
+      where: Object.keys(where).length > 0 ? where : undefined,
       orderBy: [{ categoryId: 'asc' }, { sortOrder: 'asc' }],
       include: {
         category: { select: { id: true, name: true } },

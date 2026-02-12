@@ -27,10 +27,10 @@ export function MyPageTermsList() {
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="p-2 -ml-2 text-kiosk-text"
+          className="p-3 -ml-2 text-kiosk-text text-xl font-medium min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label="뒤로 가기"
         >
-          &lt;
+          ‹
         </button>
         <h1 className="text-lg font-semibold text-kiosk-text">이용약관</h1>
         <span className="w-8" />

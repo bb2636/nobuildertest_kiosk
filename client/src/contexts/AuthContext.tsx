@@ -1,6 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
-export const AUTH_STORAGE_KEY = 'admin_auth';
+export const AUTH_STORAGE_KEY_ADMIN = 'admin_auth';
+export const AUTH_STORAGE_KEY_KIOSK = 'kiosk_auth';
+/** @deprecated 관리자/유저 분리 시 storageKey prop 사용. 기본값은 admin_auth */
+export const AUTH_STORAGE_KEY = AUTH_STORAGE_KEY_ADMIN;
 
 export type AuthUser = {
   id: string;
@@ -39,9 +42,9 @@ const initialState: AuthState = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function loadStored(): Partial<AuthState> {
+function loadStored(storageKey: string): Partial<AuthState> {
   try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (!raw) return {};
     const data = JSON.parse(raw) as StoredAuth;
     if (data.accessToken && data.refreshToken && data.user) {
@@ -53,23 +56,25 @@ function loadStored(): Partial<AuthState> {
   return {};
 }
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+type AuthProviderProps = { children: React.ReactNode; storageKey?: string };
+
+export function AuthProvider({ children, storageKey = AUTH_STORAGE_KEY_ADMIN }: AuthProviderProps) {
   const [state, setState] = useState<AuthState>({ ...initialState, ready: false });
 
   const persist = useCallback((accessToken: string | null, refreshToken: string | null, user: AuthUser | null) => {
     if (accessToken && refreshToken && user) {
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ accessToken, refreshToken, user }));
+      localStorage.setItem(storageKey, JSON.stringify({ accessToken, refreshToken, user }));
       setState((s) => ({ ...s, token: accessToken, user }));
     } else {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem(storageKey);
       setState((s) => ({ ...s, token: null, user: null }));
     }
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
-    const stored = loadStored();
+    const stored = loadStored(storageKey);
     setState((s) => ({ ...s, ...stored, ready: true }));
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
     const handler = () => persist(null, null, null);
@@ -115,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+      const raw = localStorage.getItem(storageKey);
       if (raw) {
         const data = JSON.parse(raw) as StoredAuth;
         if (data.refreshToken) {
@@ -132,7 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       persist(null, null, null);
     }
-  }, [persist]);
+  }, [persist, storageKey]);
 
   const getToken = useCallback(() => state.token, [state.token]);
 

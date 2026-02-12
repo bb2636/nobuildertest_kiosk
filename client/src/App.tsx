@@ -1,4 +1,6 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { AUTH_STORAGE_KEY_ADMIN, AUTH_STORAGE_KEY_KIOSK } from './contexts/AuthContext';
 import { KioskLayout } from './layouts/KioskLayout';
 import { KioskCartProvider } from './contexts/KioskCartContext';
 import { AdminLayout } from './layouts/AdminLayout';
@@ -44,31 +46,33 @@ function App() {
       <Route path="/403" element={<ForbiddenPage />} />
       <Route path="/500" element={<ServerErrorPage />} />
       <Route path="/401" element={<UnauthorizedPage />} />
-      {/* 고객 로그인/회원 (레이아웃 없음) */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
-      <Route path="/find-id" element={<FindId />} />
-      <Route path="/find-password" element={<FindPassword />} />
-      {/* 키오스크: 홈 → 메뉴 → 장바구니 → 결제 */}
-      <Route path="/" element={<KioskCartProvider><KioskLayout /></KioskCartProvider>}>
-        <Route index element={<KioskHome />} />
-        <Route path="menu/:itemId" element={<KioskMenuDetail />} />
-        <Route path="cart" element={<KioskCart />} />
-        <Route path="checkout" element={<Checkout />} />
-        <Route path="payment/success" element={<PaymentSuccess />} />
-        <Route path="order-done" element={<OrderDone />} />
-        <Route path="mypage" element={<MyPage />} />
-        <Route path="mypage/orders/:orderId" element={<OrderStatusView />} />
-        <Route path="mypage/orders" element={<MyPageOrders />} />
-        <Route path="mypage/point" element={<MyPagePoint />} />
-        <Route path="mypage/account" element={<MyPageAccount />} />
-        <Route path="mypage/settings" element={<MyPageSettings />} />
-        <Route path="mypage/terms-list" element={<MyPageTermsList />} />
-        <Route path="mypage/terms" element={<MyPageTerms />} />
-        <Route path="mypage/privacy" element={<MyPagePrivacy />} />
+      {/* 유저(키오스크) 영역: 같은 탭에서 관리자 로그인과 분리된 별도 스토리지 사용 */}
+      <Route element={<AuthProvider storageKey={AUTH_STORAGE_KEY_KIOSK}><Outlet /></AuthProvider>}>
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/find-id" element={<FindId />} />
+        <Route path="/find-password" element={<FindPassword />} />
+        {/* 키오스크: 홈 → 메뉴 → 장바구니 → 결제 */}
+        <Route path="/" element={<KioskCartProvider><KioskLayout /></KioskCartProvider>}>
+          <Route index element={<KioskHome />} />
+          <Route path="menu/:itemId" element={<KioskMenuDetail />} />
+          <Route path="cart" element={<KioskCart />} />
+          <Route path="checkout" element={<Checkout />} />
+          <Route path="payment/success" element={<PaymentSuccess />} />
+          <Route path="order-done" element={<OrderDone />} />
+          <Route path="mypage" element={<MyPage />} />
+          <Route path="mypage/orders/:orderId" element={<OrderStatusView />} />
+          <Route path="mypage/orders" element={<MyPageOrders />} />
+          <Route path="mypage/point" element={<MyPagePoint />} />
+          <Route path="mypage/account" element={<MyPageAccount />} />
+          <Route path="mypage/settings" element={<MyPageSettings />} />
+          <Route path="mypage/terms-list" element={<MyPageTermsList />} />
+          <Route path="mypage/terms" element={<MyPageTerms />} />
+          <Route path="mypage/privacy" element={<MyPagePrivacy />} />
+        </Route>
       </Route>
-      {/* 백오피스: /admin/login 은 공개, 나머지 /admin/* 는 ADMIN 전용 */}
-      <Route path="/admin" element={<AdminGate />}>
+      {/* 백오피스: 관리자 전용 스토리지 → 다른 탭에서 관리자 로그인해도 유저 탭 로그인 유지 */}
+      <Route path="/admin" element={<AuthProvider storageKey={AUTH_STORAGE_KEY_ADMIN}><AdminGate /></AuthProvider>}>
         <Route path="login" element={<AdminLogin />} />
         <Route element={<AdminLayout />}>
           <Route index element={<Navigate to="orders" replace />} />

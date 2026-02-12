@@ -15,20 +15,22 @@ const STATUS_MESSAGE: Record<string, string> = {
 const POLL_INTERVAL_MS = 4000;
 const LIVE_STATUSES = ['WAITING', 'PREPARING', 'PICKUP_READY'];
 
-/** 진행 단계: 1 결제완료, 2 메뉴 준비중, 3 제조 완료 */
+/** 진행 단계: 1 결제(완료/대기), 2 메뉴 준비중, 3 제조 완료. paymentStatus PENDING이면 결제 미완료 */
 function getProgress(order: UserOrderItem) {
   const s = order.status;
+  const paymentPending = order.paymentStatus === 'PENDING';
   if (s === 'CANCELED') {
-    return { step1: false, step2: false, step3: false, currentStep: 0 };
+    return { step1: false, step2: false, step3: false, currentStep: 0, paymentPending: false };
   }
   const step1 = true;
-  const step2 = s === 'PREPARING' || s === 'PICKUP_READY' || s === 'COMPLETED';
+  const step2 = !paymentPending && (s === 'PREPARING' || s === 'PICKUP_READY' || s === 'COMPLETED');
   const step3 = s === 'PICKUP_READY' || s === 'COMPLETED';
   let currentStep = 1;
-  if (s === 'WAITING') currentStep = 2;
+  if (paymentPending) currentStep = 1;
+  else if (s === 'WAITING') currentStep = 2;
   else if (s === 'PREPARING') currentStep = 2;
   else if (s === 'PICKUP_READY' || s === 'COMPLETED') currentStep = 3;
-  return { step1, step2, step3, currentStep };
+  return { step1, step2, step3, currentStep, paymentPending };
 }
 
 function formatOrderTime(dateStr: string) {
@@ -96,8 +98,8 @@ export function OrderStatusView() {
     return (
       <div className="flex flex-col min-h-[100dvh] bg-white p-6">
         <header className="flex items-center justify-between mb-4">
-          <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 text-kiosk-text">
-            &lt;
+          <button type="button" onClick={() => navigate(-1)} className="p-3 -ml-2 text-kiosk-text text-xl font-medium min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="뒤로 가기">
+            ‹
           </button>
           <h1 className="text-lg font-semibold text-kiosk-text">주문 상태</h1>
           <span className="w-8" />
@@ -137,8 +139,8 @@ export function OrderStatusView() {
     return (
       <div className="flex flex-col min-h-[100dvh] bg-white">
         <header className="flex items-center justify-between px-4 py-3 border-b border-kiosk-border">
-          <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 text-kiosk-text">
-            &lt;
+          <button type="button" onClick={() => navigate(-1)} className="p-3 -ml-2 text-kiosk-text text-xl font-medium min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="뒤로 가기">
+            ‹
           </button>
           <h1 className="text-lg font-semibold text-kiosk-text">주문 상태</h1>
           <OrderHistoryPopover />
@@ -166,23 +168,31 @@ export function OrderStatusView() {
   return (
     <div className="flex flex-col min-h-[100dvh] bg-white">
       <header className="flex items-center justify-between px-4 py-3 border-b border-kiosk-border shrink-0">
-        <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 text-kiosk-text">
-          &lt;
-        </button>
-        <h1 className="text-lg font-semibold text-kiosk-text">주문 상태</h1>
-        <OrderHistoryPopover />
+<button type="button" onClick={() => navigate(-1)} className="p-3 -ml-2 text-kiosk-text text-xl font-medium min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="뒤로 가기">
+            ‹
+          </button>
+          <h1 className="text-lg font-semibold text-kiosk-text">주문 상태</h1>
+          <OrderHistoryPopover />
       </header>
 
       <main className="flex-1 overflow-auto p-4">
+        {/* 결제 미완료 안내 */}
+        {progress.paymentPending && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 mb-4 text-amber-900 text-sm">
+            <p className="font-medium">결제가 완료되지 않았습니다.</p>
+            <p className="mt-1 text-amber-800">이 주문은 결제 대기 상태입니다. 주문을 취소하시거나 매장에서 현금 결제해 주세요.</p>
+          </div>
+        )}
+
         {/* 픽업 번호 + 상태 메시지 */}
         <div className="text-center mb-6">
-          {pickupNumber && (
+          {pickupNumber && !progress.paymentPending && (
             <p className="text-4xl font-bold text-kiosk-primary mb-1">{pickupNumber}번</p>
           )}
           <p className="text-base font-medium text-kiosk-text mb-0.5">
             {STATUS_MESSAGE[order.status] ?? order.status}
           </p>
-          {isLive && (
+          {isLive && !progress.paymentPending && (
             <p className="text-sm text-kiosk-textSecondary">약 5~10분 정도 소요됩니다.</p>
           )}
         </div>
@@ -193,12 +203,14 @@ export function OrderStatusView() {
             <div className="flex flex-col items-center shrink-0">
               <span
                 className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${
-                  progress.step1 ? 'bg-kiosk-primary text-kiosk-text' : 'bg-gray-200 text-gray-500'
+                  progress.paymentPending ? 'bg-amber-500 text-white' : progress.step1 ? 'bg-kiosk-primary text-kiosk-text' : 'bg-gray-200 text-gray-500'
                 }`}
               >
                 1
               </span>
-              <p className="text-xs text-kiosk-textSecondary mt-2 text-center whitespace-nowrap">결제완료</p>
+              <p className="text-xs text-kiosk-textSecondary mt-2 text-center whitespace-nowrap">
+                {progress.paymentPending ? '결제 대기' : '결제완료'}
+              </p>
               <p className="text-[10px] text-kiosk-textSecondary leading-tight">{formatOrderTime(order.createdAt)}</p>
             </div>
             <div
@@ -298,7 +310,7 @@ export function OrderStatusView() {
         <button
           type="button"
           onClick={() => navigate('/mypage/orders')}
-          className="w-full py-3 rounded-xl bg-kiosk-primary text-kiosk-text font-medium"
+          className="w-full py-3 rounded-xl border border-kiosk-border bg-white text-kiosk-text font-medium hover:bg-gray-50"
         >
           확인
         </button>
