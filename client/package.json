@@ -6,9 +6,15 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "build:device": "vite build --mode device",
+    "preview": "vite preview",
+    "cap:sync": "npx cap sync",
+    "cap:open": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
     "i18next": "^25.8.4",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.460.0",
@@ -26,5 +32,10 @@
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3",
     "vite": "^6.0.1"
+  },
+  "capacitor": {
+    "android": {
+      "allowMixedContent": true
+    }
   }
 }

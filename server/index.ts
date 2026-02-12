@@ -37,7 +37,7 @@ const swaggerDocument = require('./openapi.json');
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 
-app.use(cors({ origin: true }));
+app.use(cors({ origin: '*', credentials: false }));
 app.use(express.json());
 
 // 보안 헤더 (X-Content-Type-Options, X-Frame-Options 등)
@@ -108,6 +108,7 @@ app.use((_req, res) => {
   res.status(404).json({ error: 'not_found' });
 });
 
-app.listen(PORT, () => {
-  console.log(`[server] http://localhost:${PORT} (API: /api/..., Swagger: http://localhost:${PORT}/api-docs)`);
+const HOST = process.env.HOST ?? '0.0.0.0';
+app.listen(Number(PORT), HOST, () => {
+  console.log(`[server] http://${HOST}:${PORT} (API: /api/..., Swagger: http://localhost:${PORT}/api-docs)`);
 });

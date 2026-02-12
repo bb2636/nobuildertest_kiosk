@@ -23,6 +23,7 @@
 | `TOSSPAYMENTS_SECRET_KEY` | 토스 결제 승인 API용 시크릿 키 (백엔드 전용, 노출 금지). **테스트**: `test_sk_...` 사용 |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | (선택) 웹 푸시 알림. 미설정 시 푸시 미발송. [docs/PUSH_NOTIFICATIONS.md](docs/PUSH_NOTIFICATIONS.md) |
 | `VITE_VAPID_PUBLIC_KEY` | (선택) 프론트 푸시 구독용 VAPID 공개키 (서버와 동일 값) |
+| `VITE_API_URL` | (선택) Capacitor 실기기 빌드 시 백엔드 주소. 예: `http://10.140.140.171:3001` (미설정 시 device 모드 기본값 사용) |
 
 `.env.example`을 복사해 `.env`를 만들고 값을 채우면 됩니다. 토스 테스트 결제는 [토스페이먼츠 개발자센터](https://docs.tosspayments.com/)에서 발급한 테스트 키로 동작합니다.
 
@@ -68,6 +69,181 @@ npm run dev:server   # 백엔드만 (Express)
 ```
 
 프론트에서 `/api` 요청은 Vite 프록시로 `http://localhost:3001`로 전달됩니다. 서버는 **프로젝트 루트** 또는 **server 상위 디렉터리**의 `.env`를 자동으로 로드합니다.
+
+---
+
+## 📱 Capacitor Android 앱 래핑 (실기기 테스트)
+
+키오스크를 Android 앱으로 래핑해 실기기에서 같은 Wi-Fi의 PC 백엔드에 연결할 수 있습니다.
+
+### 중요
+
+- **모든 `npx cap ...` 명령어는 반드시 프론트엔드 폴더(`client`) 안에서 실행해야 합니다.**
+- **Android Studio에서 Run(▶)을 눌러 앱을 구동합니다.** (빌드·설치 후 실기기/에뮬레이터에서 실행)
+
+### 사전 준비
+
+- Node 18+
+- Android Studio (JDK 17 권장)
+- 실기기: PC와 **같은 Wi-Fi** 연결
+- Windows: 방화벽에서 **백엔드 포트(3001) 인바운드 허용**
+- PC IP 확인: CMD에서 `ipconfig` → 해당 Wi-Fi IPv4 주소 (예: 10.140.140.171)
+
+### 환경 변수 (실기기용)
+
+- **VITE_API_URL**: 실기기가 접속할 백엔드 주소.  
+  예: `VITE_API_URL=http://10.140.140.171:3001` (PC IP는 ipconfig로 확인 후 변경)
+- 루트 `.env`에 넣거나, 빌드 시 한 번만 지정:  
+  `set VITE_API_URL=http://10.140.140.171:3001` 후 `npm run build:device`
+- 값을 주지 않으면 **device 모드** 빌드 시 코드에 넣어 둔 기본 PC IP가 사용됩니다. (현재 `vite.config.ts` 기본값: `http://10.140.140.171:3001`. PC IP가 다르면 루트 또는 `client/.env`에 `VITE_API_URL` 설정)
+
+### 빌드 및 실행 순서
+
+1. **client** 폴더로 이동:
+   ```bash
+   cd client
+   ```
+2. 의존성 설치 (최초 1회):
+   ```bash
+   npm install
+   ```
+3. Android 플랫폼 추가 (최초 1회, **반드시 client 폴더에서**):
+   ```bash
+   npx cap add android
+   ```
+4. 실기기용 웹 빌드 (PC IP 반영 후):
+   ```bash
+   npm run build:device
+   ```
+5. Capacitor 동기화 (**client 폴더에서**):
+   ```bash
+   npx cap sync
+   ```
+6. Android Studio 열기 (**client 폴더에서**):
+   ```bash
+   npx cap open android
+   ```
+7. **실기기(폰)에 앱 설치·실행** (둘 중 편한 방법):
+   - **방법 A – 터미널에서 바로 실행**  
+     `client` 폴더에서 **폰만 연결**한 상태(에뮬레이터 종료)로:
+     ```bash
+     npx cap run android
+     ```
+     → 폰에 `app-debug.apk` 설치 후 자동 실행.  
+     (에뮬레이터와 폰이 동시에 연결되면 한 대만 골라서 설치될 수 있으므로, 폰에만 설치하려면 에뮬레이터를 끄고 실행하는 것이 좋습니다.)
+   - **방법 B – Android Studio에서 기기 선택**  
+     `npx cap open android`로 연 뒤, 상단 **Run(▶)** 왼쪽 **기기 드롭다운**에서 **실기기(내 폰)** 를 선택하고 **Run(▶)** 클릭.
+
+### 백엔드
+
+- 서버는 **0.0.0.0**으로 listen 하여 외부 기기 접속을 허용합니다. (기본 적용)
+- CORS는 `origin: '*'`, `credentials: false`로 설정되어 있습니다.
+
+### 무선 디버깅으로 폰 연결 (adb)
+
+USB 없이 같은 Wi‑Fi에서 폰을 인식시키려면 **무선 디버깅**으로 adb 연결합니다. (Android 11 이상)
+
+1. **adb 위치**  
+   Android Studio 설치 시 함께 들어 있는 **Android SDK platform-tools**에 있습니다.  
+   - 기본 경로(Windows): `C:\Users\사용자명\AppData\Local\Android\Sdk\platform-tools\adb.exe`  
+   - PATH에 없으면 아래 명령에서 `adb` 대신 이 경로 전체를 넣거나, **시스템 환경 변수 Path**에 `platform-tools` 폴더를 추가한 뒤 터미널을 다시 엽니다.
+
+2. **폰 설정**  
+   - **설정 → 개발자 옵션 → 무선 디버깅** 켜기  
+   - **무선 디버깅** 화면에 **기기와 페어링 코드로 연결** / **Pair device with pairing code** 와 **기기 IP 주소 및 포트** (연결용 포트)가 표시됩니다.
+
+3. **페어링 (최초 1회)**  
+   터미널에서 **페어링용 IP:포트**만 사용합니다. (`IP:` 라는 글자는 입력하지 않습니다.)
+   ```bash
+   adb pair 10.140.140.168:38363
+   ```
+   → **Enter pairing code:** 가 나오면 폰에 뜬 **6자리 코드** 입력 후 엔터.  
+   → `Successfully paired to ...` 가 나오면 성공.
+
+4. **연결**  
+   무선 디버깅 화면의 **기기 IP 주소 및 포트**(연결용 포트, 페어링 포트와 다름)로 연결합니다.
+   ```bash
+   adb connect 10.140.140.168:5555
+   ```
+   → `5555`는 예시이며, 폰에 표시된 **연결 포트**로 바꿉니다.
+
+5. **연결 확인**  
+   ```bash
+   adb devices
+   ```
+   → 목록에 `10.140.140.168:5555 device` 처럼 나오면 연결된 것입니다. 이 상태에서 `npx cap run android` 하면 해당 폰에 앱이 설치됩니다.
+
+### 방화벽에서 3001 포트 열기
+
+실기기(폰) 앱이 PC의 백엔드(3001)에 접속하려면, **백엔드를 실행하는 PC**에서 3001 포트 인바운드를 허용해야 합니다.
+
+**관리자 PowerShell**에서 한 번만 실행:
+
+```powershell
+New-NetFirewallRule -DisplayName "Node 3001" -Direction Inbound -LocalPort 3001 -Protocol TCP -Action Allow
+```
+
+- PC와 폰이 **같은 Wi‑Fi**여야 하고, 앱 빌드 시 `VITE_API_URL=http://PC의IPv4:3001` 로 **PC IP**를 맞춰 빌드했는지 확인하세요.
+- 폰 브라우저에서 `http://PC의IPv4:3001/api/health` 가 열리면 네트워크·방화벽은 정상입니다.
+
+### 모바일에서 "연결이 끊겼습니다" 나올 때
+
+모바일 앱은 **빌드 시점에 넣은 PC IP**로만 API를 호출합니다. 아래를 순서대로 확인하세요.
+
+1. **PC에서 백엔드 실행 중인지**  
+   step4에서 `npm run dev` 가 떠 있어야 합니다. (또는 `npm run dev:server` 로 3001 포트 실행)
+
+2. **PC IP 확인**  
+   백엔드 돌리는 PC에서 CMD/PowerShell: `ipconfig` → 사용 중인 Wi‑Fi의 **IPv4 주소** (예: 10.140.140.171).
+
+3. **같은 Wi‑Fi**  
+   폰과 PC가 **같은 Wi‑Fi**에 연결돼 있어야 합니다.
+
+4. **방화벽**  
+   위 **"방화벽에서 3001 포트 열기"** 한 번 실행했는지 확인.  
+   관리자 PowerShell:  
+   `New-NetFirewallRule -DisplayName "Node 3001" -Direction Inbound -LocalPort 3001 -Protocol TCP -Action Allow`
+
+5. **폰 브라우저로 연결 테스트**  
+   폰에서 **크롬 등 브라우저**를 열고 주소창에 입력:  
+   `http://PC의IPv4:3001/api/health`  
+   (예: `http://10.140.140.171:3001/api/health`)  
+   - **`{"ok":true,"db":"connected"}` 비슷한 JSON이 보이면** → 네트워크·방화벽은 정상. **6번으로 앱 재빌드.**  
+   - **안 열리면** → 방화벽·Wi‑Fi·PC IP 다시 확인.
+
+6. **앱을 현재 PC IP로 다시 빌드**  
+   앱에 들어간 API 주소는 **빌드할 때** 정해지므로, PC IP가 바뀌었거나 처음부터 다르면 **다시 빌드**해야 합니다.  
+   ```bash
+   cd client
+   set VITE_API_URL=http://10.140.140.171:3001
+   npm run build
+   npx cap sync
+   npx cap run android
+   ```  
+   `10.140.140.171` 자리를 **2번에서 확인한 PC IPv4**로 바꿉니다.
+
+7. **Android HTTP(cleartext) 허용**  
+   [docs/CAPACITOR_ANDROID.md](docs/CAPACITOR_ANDROID.md) 의 **3.2, 3.3** 에 따라  
+   `usesCleartextTraffic="true"`, `network_security_config.xml` 에 PC IP가 들어가 있는지 확인합니다.
+
+### 상세 가이드
+
+- **Java 17 고정**, **Cleartext HTTP 허용**, **network_security_config**, **MainActivity Mixed Content** 등 Android 네이티브 설정은 [docs/CAPACITOR_ANDROID.md](docs/CAPACITOR_ANDROID.md)를 참고하세요.
+
+### 다른 프로젝트(frontend/backend 구조)와 비교
+
+| 항목 | 이 프로젝트 (step4) | 다른 폴더 예시 (당근 클론 등) |
+|------|---------------------|------------------------------|
+| 프론트 폴더 | `client` | `frontend` |
+| 백엔드 폴더 | `server` | `backend` |
+| cap 명령 실행 위치 | **반드시 `client`** | **반드시 `frontend`** |
+| API 주소 env | 루트 `.env` 또는 `client/.env`, `VITE_API_URL` | `frontend/.env`, `VITE_API_URL` |
+| 기본 PC IP | `vite.config.ts` 기본값 (예: 10.140.140.171) | 172.30.1.71 등 코드/문서에 명시 |
+| 폰에 설치 | `cd client` → `npx cap run android` (폰만 연결 시 폰에 설치) 또는 Android Studio에서 기기 선택 후 Run | 동일: `cd frontend` → `npx cap run android` 또는 Android Studio Run |
+
+**공통:** `npx cap run android` / `npx cap sync` 는 **항상 프론트엔드 폴더(client 또는 frontend) 안에서** 실행합니다. 터미널에서 `npx cap run android` 시 연결된 기기가 하나(폰만)면 그 기기에 설치되고, 에뮬레이터와 폰이 둘 다 있으면 환경에 따라 한 대만 선택될 수 있어, **폰에만 설치하려면 에뮬레이터를 끄거나, Android Studio 기기 드롭다운에서 실기기를 선택한 뒤 Run** 하면 됩니다.
+
+---
 
 ## 프로젝트 구조
 

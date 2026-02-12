@@ -1,6 +1,25 @@
 import { AUTH_STORAGE_KEY_ADMIN, AUTH_STORAGE_KEY_KIOSK, type AuthUser } from '../contexts/AuthContext';
 
-const API = '/api';
+/** 실기기 빌드 시 VITE_API_URL로 API 서버 주소 지정. 없으면 동일 오리진(/api) 사용. */
+function getApiBase(): string {
+  const url = import.meta.env.VITE_API_URL;
+  if (url && typeof url === 'string') {
+    return url.trim().replace(/\/+$/, '');
+  }
+  return '';
+}
+
+function getApiBaseWithApi(): string {
+  const base = getApiBase();
+  return base ? `${base}/api` : '/api';
+}
+
+const API = getApiBaseWithApi();
+
+/** API 베이스 URL (이미지 등 절대 경로 변환용). export for resolveApiImageUrl */
+export function getApiBaseUrl(): string {
+  return getApiBase() || (typeof window !== 'undefined' ? window.location.origin : '');
+}
 
 type StoredAuth = { accessToken?: string; refreshToken?: string; user?: unknown };
 
@@ -72,19 +91,23 @@ async function request<T>(
   options?: RequestInit & { params?: Record<string, string> }
 ): Promise<T> {
   const { params, ...init } = options ?? {};
-  const url = params ? `${API}${path}?${new URLSearchParams(params)}` : `${API}${path}`;
+  const pathNorm = path.startsWith('/') ? path : `/${path}`;
+  const url = params
+    ? `${API}${pathNorm}?${new URLSearchParams(params)}`
+    : `${API}${pathNorm}`;
+  const urlTrimmed = url.trim();
   const headers: HeadersInit = { 'Content-Type': 'application/json', ...init.headers };
   const token = getAuthToken();
   if (token) (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
 
   try {
-    const res = await fetch(url, { ...init, headers });
+    const res = await fetch(urlTrimmed, { ...init, headers });
 
     if (res.status === 401) {
       const newToken = await refreshAndSave();
       if (newToken) {
         (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
-        const retryRes = await fetch(url, { ...init, headers });
+        const retryRes = await fetch(urlTrimmed, { ...init, headers });
         if (retryRes.status === 401) {
           clearAuth();
           throw new Error('unauthorized');
