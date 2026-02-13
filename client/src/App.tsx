@@ -27,6 +27,7 @@ import { OrderStatusView } from './pages/kiosk/OrderStatusView';
 import { AdminLogin } from './pages/admin/AdminLogin';
 import { AdminOrders } from './pages/admin/AdminOrders';
 import { AdminMenu } from './pages/admin/AdminMenu';
+import { AdminMenuRegister } from './pages/admin/AdminMenuRegister';
 import { AdminUsers } from './pages/admin/AdminUsers';
 import { AdminCategories } from './pages/admin/AdminCategories';
 import { AdminTerms } from './pages/admin/AdminTerms';
@@ -79,6 +80,7 @@ function App() {
           <Route path="users" element={<AdminUsers />} />
           <Route path="orders" element={<AdminOrders />} />
           <Route path="menu" element={<AdminMenu />} />
+          <Route path="menu/register" element={<AdminMenuRegister />} />
           <Route path="categories" element={<AdminCategories />} />
           <Route path="terms" element={<AdminTerms />} />
           <Route path="privacy" element={<AdminPrivacy />} />

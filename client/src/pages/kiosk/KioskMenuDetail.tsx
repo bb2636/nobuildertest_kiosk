@@ -39,6 +39,7 @@ export function KioskMenuDetail() {
   const [temperature, setTemperature] = useState<'HOT' | 'ICED'>('HOT');
   const [shotCount, setShotCount] = useState(2);
   const [optionModal, setOptionModal] = useState<{ type: string; opts: OptionRow[] } | null>(null);
+  const [showAddedToCartModal, setShowAddedToCartModal] = useState(false);
 
   const defaultShots = item?.defaultShotCount ?? 2;
   const shotOption = item?.options.find((o) => o.type.includes('샷') && o.extraPrice > 0);
@@ -182,8 +183,14 @@ export function KioskMenuDetail() {
       navigate('/cart');
     } else {
       add(linePayload);
-      navigate('/');
+      setShowAddedToCartModal(true);
     }
+  };
+
+  const closeAddedToCartModal = (goTo: 'cart' | 'home') => {
+    setShowAddedToCartModal(false);
+    if (goTo === 'cart') navigate('/cart');
+    else navigate('/');
   };
 
   /** 다국어 모드에서 "선택한 옵션" 요약에 사용할 이미 번역된 라벨 배열 */
@@ -585,6 +592,35 @@ export function KioskMenuDetail() {
               </Button>
             </div>
           )}
+        </Modal>
+      )}
+
+      {showAddedToCartModal && (
+        <Modal
+          open={showAddedToCartModal}
+          onClose={() => closeAddedToCartModal('home')}
+          title={t('addToCartSuccess')}
+          showCloseButton={true}
+        >
+          <div className="flex flex-col gap-3 pt-2">
+            <Button
+              theme="kiosk"
+              fullWidth
+              className="bg-kiosk-primary text-kiosk-text font-semibold"
+              onClick={() => closeAddedToCartModal('cart')}
+            >
+              {t('goToCart')}
+            </Button>
+            <Button
+              theme="kiosk"
+              fullWidth
+              variant="secondary"
+              className="border-kiosk-primary text-kiosk-primary bg-white font-semibold"
+              onClick={() => closeAddedToCartModal('home')}
+            >
+              {t('continueBrowsing')}
+            </Button>
+          </div>
         </Modal>
       )}
     </div>

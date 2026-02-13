@@ -17,6 +17,7 @@ const SIDEBAR_SECTIONS = [
     label: '메뉴관리',
     items: [
       { to: '/admin/menu', label: '상품 관리' },
+      { to: '/admin/menu/register', label: '메뉴 등록하기' },
       { to: '/admin/categories', label: '카테고리 설정' },
     ],
   },
@@ -96,6 +97,7 @@ export function AdminLayout() {
                       <li key={to}>
                         <NavLink
                           to={to}
+                          end={to === '/admin/menu'}
                           onClick={() => setSidebarOpen(false)}
                           className={({ isActive }) =>
                             `block px-4 py-2 text-sm rounded-l-md ${

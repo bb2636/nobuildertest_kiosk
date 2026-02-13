@@ -323,6 +323,17 @@ export const api = {
           body: JSON.stringify({ status }),
         }),
     },
+    optionGroups: {
+      list: () =>
+        request<{ id: string; name: string; sortOrder: number; options: { id: string; name: string; defaultExtraPrice: number; sortOrder: number }[] }[]>(
+          '/admin/option-groups'
+        ),
+      createOption: (groupId: string, body: { name: string; defaultExtraPrice?: number }) =>
+        request<{ id: string; name: string; defaultExtraPrice: number }>(`/admin/option-groups/${groupId}/options`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }),
+    },
     products: {
       list: (params?: { updatedAfter?: string }) =>
         request<(MenuItem & { category: { id: string; name: string }; isAvailable?: boolean })[]>(
@@ -352,6 +363,8 @@ export const api = {
         body: { isAvailable?: boolean; name?: string; basePrice?: number; sortOrder?: number }
       ) => request<MenuItem>(`/admin/products/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
       delete: (id: string) => request<void>(`/admin/products/${id}`, { method: 'DELETE' }),
+      setOptions: (id: string, body: { optionIds: string[] }) =>
+        request<void>(`/admin/products/${id}/options`, { method: 'POST', body: JSON.stringify(body) }),
     },
     categories: {
       list: (params?: { updatedAfter?: string }) =>
@@ -359,6 +372,8 @@ export const api = {
           '/categories',
           params?.updatedAfter ? { params: { updatedAfter: params.updatedAfter } } : undefined
         ),
+      getDefaultOptions: (categoryId: string) =>
+        request<{ optionIds: string[] }>(`/admin/categories/${categoryId}/default-options`),
       create: (body: { name: string; isActive?: boolean; sortOrder?: number }) =>
         request<{ id: string }>('/categories', { method: 'POST', body: JSON.stringify(body) }),
       update: (id: string, body: { name?: string; isActive?: boolean; sortOrder?: number }) =>

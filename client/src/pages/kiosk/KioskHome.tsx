@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Maximize2, ShoppingCart, User } from 'lucide-react';
+import { Check, Maximize2, RefreshCw, ShoppingCart, User, X } from 'lucide-react';
 import { useKioskCart } from '../../contexts/KioskCartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMenuCache } from '../../contexts/MenuCacheContext';
@@ -11,7 +11,7 @@ import { isCapacitorApp } from '../../api/client';
 export function KioskHome() {
   const { t, i18n } = useTranslation('kiosk');
   const { user } = useAuth();
-  const { lines, clear } = useKioskCart();
+  const { lines, clear, remove, updateQuantity } = useKioskCart();
   const { categories, items, isInitialized, revalidate } = useMenuCache();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const didRevalidateRef = useRef(false);
@@ -142,7 +142,9 @@ export function KioskHome() {
 
       <main className="flex-1 overflow-auto p-4 md:p-6">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
-          {displayItems.map((item) => (
+          {displayItems.map((item) => {
+            const inCart = lines.some((l) => l.productId === item.id);
+            return (
             <Link
               key={item.id}
               to={`/menu/${item.id}`}
@@ -165,6 +167,11 @@ export function KioskHome() {
                 >
                   {t('noImage')}
                 </span>
+                {inCart && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-md" aria-hidden>
+                    <Check className="h-10 w-10 text-white shrink-0" strokeWidth={3} />
+                  </span>
+                )}
                 {item.isSoldOut && (
                   <span className="absolute top-0 left-0 bg-kiosk-textSecondary text-white text-[10px] font-bold py-1 px-2 rounded-br">
                     {t('soldOut')}
@@ -181,25 +188,76 @@ export function KioskHome() {
               </p>
               <p className="text-xs text-kiosk-textSecondary">{item.basePrice.toLocaleString()}{t('currencyUnit')}</p>
             </Link>
-          ))}
+          );
+          })}
         </div>
       </main>
 
-      <footer className="sticky bottom-0 bg-white border-t border-kiosk-border p-4 md:p-6 safe-area-pb">
-        <div className="flex items-center justify-between mb-2 text-sm text-kiosk-textSecondary">
-          <span>
-            {t('cartCount', { count: cartCount })}
-          </span>
+      {/* 하단 슬라이스: 주문내역 가로 스크롤 + 총액·주문하기 */}
+      <footer className="sticky bottom-0 bg-white border-t border-kiosk-border safe-area-pb">
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+          <h2 className="text-sm font-semibold text-kiosk-text">
+            {t('orderHistory')} {cartCount}
+          </h2>
           <button
             type="button"
             onClick={clear}
-            className="text-kiosk-textSecondary hover:text-kiosk-text flex items-center gap-1"
+            className="flex items-center gap-1.5 text-sm text-kiosk-textSecondary hover:text-kiosk-text p-1.5 rounded transition-colors"
+            aria-label={t('reset')}
           >
-            {t('reset')}
+            <RefreshCw className="h-4 w-4" />
+            <span>{t('reset')}</span>
           </button>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="font-medium text-kiosk-text">
+        <div className="flex gap-3 px-4 overflow-x-auto overflow-y-hidden pb-2">
+          {lines.map((line, index) => (
+            <div
+              key={`${line.productId}-${index}`}
+              className="flex-shrink-0 w-[160px] md:w-[180px] rounded-lg border border-kiosk-border bg-kiosk-surface p-2 flex flex-col"
+            >
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => remove(index)}
+                  className="absolute top-0 right-0 z-10 p-1 rounded-full bg-white/90 text-kiosk-textSecondary hover:text-kiosk-error hover:bg-white shadow-sm"
+                  aria-label={t('delete')}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <div className="w-full aspect-square rounded-md overflow-hidden bg-white">
+                  {line.imageUrl ? (
+                    <img src={line.imageUrl} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  ) : (
+                    <span className="flex items-center justify-center w-full h-full text-kiosk-textSecondary text-xs">{t('noImage')}</span>
+                  )}
+                </div>
+              </div>
+              <p className="font-medium text-sm text-kiosk-text truncate mt-1.5">{line.name}</p>
+              <p className="text-xs text-kiosk-textSecondary">
+                {(line.unitPrice * line.quantity).toLocaleString()}{t('currencyUnit')}
+              </p>
+              <div className="flex items-center gap-1 mt-2">
+                <button
+                  type="button"
+                  onClick={() => updateQuantity(index, Math.max(1, line.quantity - 1))}
+                  className="w-7 h-7 flex items-center justify-center rounded border border-kiosk-border bg-white text-kiosk-text hover:bg-kiosk-surface text-sm font-medium"
+                >
+                  −
+                </button>
+                <span className="w-7 text-center text-sm font-medium text-kiosk-text">{line.quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => updateQuantity(index, line.quantity + 1)}
+                  className="w-7 h-7 flex items-center justify-center rounded border border-kiosk-border bg-white text-kiosk-text hover:bg-kiosk-surface text-sm font-medium"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-between px-4 py-3 border-t border-kiosk-border bg-white">
+          <span className="font-semibold text-kiosk-text">
             {t('total', {
               value: i18n.language === 'en'
                 ? `${totalPrice.toLocaleString()}${t('currencyUnit')}`.trim()

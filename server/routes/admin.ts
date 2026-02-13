@@ -297,6 +297,97 @@ adminRouter.get('/products', async (req, res) => {
   }
 });
 
+/** GET /api/admin/categories/:categoryId/default-options - 해당 카테고리 상품들이 쓰는 옵션 ID 목록 (기본값 입력용) */
+adminRouter.get('/categories/:categoryId/default-options', async (req, res) => {
+  try {
+    const { categoryId } = req.params;
+    const productOptions = await prisma.productOption.findMany({
+      where: { product: { categoryId } },
+      select: { optionId: true },
+      distinct: ['optionId'],
+    });
+    res.json({ optionIds: productOptions.map((po) => po.optionId) });
+  } catch (e) {
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+/** GET /api/admin/option-groups - 옵션 그룹·옵션 목록 (메뉴 등록 시 옵션 연결용) */
+adminRouter.get('/option-groups', async (_req, res) => {
+  try {
+    const groups = await prisma.optionGroup.findMany({
+      orderBy: { sortOrder: 'asc' },
+      include: {
+        options: { orderBy: { sortOrder: 'asc' } },
+      },
+    });
+    res.json(groups);
+  } catch (e) {
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+/** POST /api/admin/option-groups/:id/options - 옵션 그룹에 새 옵션 추가 */
+adminRouter.post('/option-groups/:id/options', async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    const body = req.body as { name?: string; defaultExtraPrice?: number };
+    const optionName = typeof body?.name === 'string' ? body.name.trim() : '';
+    if (!optionName) {
+      return res.status(400).json({ error: 'name required' });
+    }
+    const group = await prisma.optionGroup.findUnique({
+      where: { id: groupId },
+      select: { id: true },
+    });
+    if (!group) {
+      return res.status(404).json({ error: 'option group not found' });
+    }
+    const defaultExtraPrice = typeof body.defaultExtraPrice === 'number' ? body.defaultExtraPrice : 0;
+    const option = await prisma.option.create({
+      data: {
+        optionGroupId: groupId,
+        name: optionName,
+        defaultExtraPrice: Math.max(0, defaultExtraPrice),
+        sortOrder: 0,
+      },
+    });
+    res.status(201).json(option);
+  } catch (e) {
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+/** POST /api/admin/products/:id/options - 상품에 옵션 연결 (기존 ProductOption 삭제 후 일괄 생성) */
+adminRouter.post('/products/:id/options', async (req, res) => {
+  try {
+    const productId = req.params.id;
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true },
+    });
+    if (!product) {
+      return res.status(404).json({ error: 'product not found' });
+    }
+    const body = req.body as { optionIds?: string[] };
+    const optionIds = Array.isArray(body?.optionIds) ? body.optionIds.filter((id): id is string => typeof id === 'string') : [];
+    await prisma.$transaction([
+      prisma.productOption.deleteMany({ where: { productId } }),
+      ...(optionIds.length > 0
+        ? [
+            prisma.productOption.createMany({
+              data: optionIds.map((optionId) => ({ productId, optionId })),
+              skipDuplicates: true,
+            }),
+          ]
+        : []),
+    ]);
+    res.status(204).send();
+  } catch (e) {
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
 /** POST /api/admin/products - 메뉴 등록 */
 adminRouter.post('/products', async (req, res) => {
   try {
