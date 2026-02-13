@@ -2,6 +2,63 @@
 
 피그마 디자인 기반 키오스크(모바일) + 백오피스(웹) SPA.
 
+<details>
+  <summary>📸 스크린샷 상세보기 (클릭하여 펼치기)</summary>
+  <br />
+  <table align="center">
+    <tr>
+      <td align="center"><img src="https://github.com/user-attachments/assets/1dba21ae-3a20-4db4-b1ab-345d4d1c85de" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/6c4bd817-7766-4023-b766-3b54addcd71a" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/8ae0b2fa-8b98-443c-abaf-605a645c374f" width="30%" /></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="https://github.com/user-attachments/assets/423f3796-09c8-41ba-b070-a6d2007394f9" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/0ffde49d-99d7-4251-80c0-48899a489a77" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/9da2965a-2655-4cad-99cb-306bba5d1312" width="30%" /></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="https://github.com/user-attachments/assets/a14b433e-5f1b-4a5a-a967-af740a6c8daf" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/e1e6c1cc-5f5b-4b64-b5ac-077c9973607a" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/a5fbb426-d80a-4a5a-999b-cd439c8bfef2" width="30%" /></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="https://github.com/user-attachments/assets/ab369dff-f5ae-41ad-9678-0d5612096e5a" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/f658d543-6cf2-439d-b8d8-1104b69ed27c" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/667f496d-e669-4b97-876e-c04aff35f9be" width="30%" /></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="https://github.com/user-attachments/assets/9a428917-839a-4d52-ac4b-faba10933725" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/3f81c8bb-4bf3-4e73-a40f-2af6b11c07a4" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/ba5d669d-d35c-4a7a-ba8a-d8819625f203" width="30%" /></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="https://github.com/user-attachments/assets/72520074-f0ff-4674-ae7f-8cf7be175b8a" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/eb0214e5-c4a9-4bf4-92c9-94d403bf672f" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/faf74ab0-a8d1-49c7-9c1e-5af2b6002e70" width="30%" /></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="https://github.com/user-attachments/assets/b1b4933a-9b10-4ff9-91fb-0edf22abb2ef" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/4c30f9a0-16ce-4157-9c58-d2cb1023f407" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/ff59a5bd-e996-4f18-a40f-eef4d83f0966" width="30%" /></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="https://github.com/user-attachments/assets/7de92553-d789-42f6-b9de-7196a04814cd" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/99f10fc2-9f4e-40db-ba72-9d8436068cbd" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/cfd4bed5-69a6-45e4-b5b9-c6805dc2e96c" width="30%" /></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="https://github.com/user-attachments/assets/24f9474c-3887-49a9-881c-6e8af0392f9d" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/1c597f50-c75d-4648-8009-4bce53c4ff53" width="30%" /></td>
+      <td align="center"><img src="https://github.com/user-attachments/assets/cf44e67f-527c-4f6d-89ac-33cd2d52d4c3" width="30%" /></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="https://github.com/user-attachments/assets/f92ddc80-3efb-4cc7-bd26-a34d050f4657" width="30%" /></td>
+      <td></td>
+      <td></td>
+    </tr>
+  </table>
+</details>
+
 ## 기술 스택
 
 - **Frontend**: React 18, Vite, React Router, Tailwind CSS, Lucide React, i18next / react-i18next (키오스크 다국어)
