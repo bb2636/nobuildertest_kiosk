@@ -88,7 +88,8 @@ export function AuthProvider({ children, storageKey = AUTH_STORAGE_KEY_ADMIN }: 
       password: string
     ): Promise<{ ok: true; user: AuthUser } | { ok: false; error: string }> => {
       try {
-        const res = await fetch('/api/auth/login', {
+        const apiRoot = (await import('../api/client')).getApiRoot();
+        const res = await fetch(`${apiRoot}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: username.trim(), password }),
@@ -124,7 +125,8 @@ export function AuthProvider({ children, storageKey = AUTH_STORAGE_KEY_ADMIN }: 
       if (raw) {
         const data = JSON.parse(raw) as StoredAuth;
         if (data.refreshToken) {
-          await fetch('/api/auth/logout', {
+          const apiRoot = (await import('../api/client')).getApiRoot();
+          await fetch(`${apiRoot}/auth/logout`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refreshToken: data.refreshToken }),

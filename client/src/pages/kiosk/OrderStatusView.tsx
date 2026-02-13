@@ -147,7 +147,7 @@ export function OrderStatusView() {
         </header>
         <main className="flex-1 overflow-auto p-4">
           <p className="text-center text-kiosk-error font-medium py-8">주문이 취소되었습니다.</p>
-          <div className="rounded-xl bg-kiosk-surface border border-kiosk-border p-4 space-y-2 text-sm text-kiosk-textSecondary">
+          <div className="rounded-xl bg-white border border-kiosk-border p-4 space-y-2 text-sm text-kiosk-textSecondary">
             <p>주문번호 {order.orderNo}</p>
             <p>{order.totalAmount.toLocaleString()}원</p>
           </div>
@@ -178,9 +178,9 @@ export function OrderStatusView() {
       <main className="flex-1 overflow-auto p-4">
         {/* 결제 미완료 안내 */}
         {progress.paymentPending && (
-          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 mb-4 text-amber-900 text-sm">
+          <div className="rounded-xl border border-kiosk-border bg-white p-4 mb-4 text-kiosk-text text-sm">
             <p className="font-medium">결제가 완료되지 않았습니다.</p>
-            <p className="mt-1 text-amber-800">이 주문은 결제 대기 상태입니다. 주문을 취소하시거나 매장에서 현금 결제해 주세요.</p>
+            <p className="mt-1 text-kiosk-textSecondary">이 주문은 결제 대기 상태입니다. 주문을 취소하시거나 매장에서 현금 결제해 주세요.</p>
           </div>
         )}
 
@@ -198,12 +198,12 @@ export function OrderStatusView() {
         </div>
 
         {/* 진행 단계 바 */}
-        <div className="rounded-xl bg-kiosk-surface border border-kiosk-border p-4 mb-4">
+        <div className="rounded-xl bg-white border border-kiosk-border p-4 mb-4">
           <div className="flex items-start justify-between gap-0">
             <div className="flex flex-col items-center shrink-0">
               <span
                 className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${
-                  progress.paymentPending ? 'bg-amber-500 text-white' : progress.step1 ? 'bg-kiosk-primary text-kiosk-text' : 'bg-gray-200 text-gray-500'
+                  progress.paymentPending ? 'bg-gray-400 text-white' : progress.step1 ? 'bg-kiosk-primary text-kiosk-text' : 'bg-gray-200 text-gray-500'
                 }`}
               >
                 1
@@ -255,7 +255,7 @@ export function OrderStatusView() {
         </div>
 
         {/* 주문 상세 카드 */}
-        <div className="rounded-xl bg-kiosk-surface border border-kiosk-border p-4 mb-4">
+        <div className="rounded-xl bg-white border border-kiosk-border p-4 mb-4">
           <dl className="space-y-2 text-sm">
             <div>
               <dt className="text-kiosk-textSecondary">주문 번호</dt>
@@ -281,12 +281,6 @@ export function OrderStatusView() {
             </div>
           </dl>
         </div>
-
-        {isLive && (
-          <p className="text-sm text-kiosk-textSecondary text-center mb-4">
-            홈화면에서도 현재 상황을 확인할 수 있어요!
-          </p>
-        )}
 
         {cancelError && (
           <p className="text-sm text-kiosk-error mb-3" role="alert">

@@ -6,6 +6,7 @@ import { useKioskCart } from '../../contexts/KioskCartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMenuCache } from '../../contexts/MenuCacheContext';
 import { setLocale } from '../../i18n';
+import { isCapacitorApp } from '../../api/client';
 
 export function KioskHome() {
   const { t, i18n } = useTranslation('kiosk');
@@ -34,6 +35,22 @@ export function KioskHome() {
     return (
       <div className="flex flex-col min-h-[100dvh] bg-[#f5f5f5] items-center justify-center">
         <p className="text-kiosk-textSecondary">{t('loadingMenu')}</p>
+      </div>
+    );
+  }
+
+  if (isCapacitorApp() && categories.length === 0) {
+    return (
+      <div className="flex flex-col min-h-[100dvh] bg-[#f5f5f5] items-center justify-center p-4 text-center">
+        <p className="text-kiosk-text mb-2">서버에 연결할 수 없습니다.</p>
+        <p className="text-sm text-kiosk-textSecondary mb-4">
+          로그인 화면에서 &apos;모바일 앱 연결&apos;에 PC 주소를 입력해 주세요.
+          <br />
+          (예: http://10.140.140.147:3001)
+        </p>
+        <Link to="/login" className="text-kiosk-primary font-medium underline">
+          로그인 화면으로 이동
+        </Link>
       </div>
     );
   }

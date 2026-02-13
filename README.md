@@ -216,7 +216,7 @@ New-NetFirewallRule -DisplayName "Node 3001" -Direction Inbound -LocalPort 3001 
    ```bash
    cd client
    set VITE_API_URL=http://10.140.140.171:3001
-   npm run build
+   npm run build:device
    npx cap sync
    npx cap run android
    ```  
@@ -225,6 +225,55 @@ New-NetFirewallRule -DisplayName "Node 3001" -Direction Inbound -LocalPort 3001 
 7. **Android HTTP(cleartext) 허용**  
    [docs/CAPACITOR_ANDROID.md](docs/CAPACITOR_ANDROID.md) 의 **3.2, 3.3** 에 따라  
    `usesCleartextTraffic="true"`, `network_security_config.xml` 에 PC IP가 들어가 있는지 확인합니다.
+
+### 모바일에서 로그인이 안 될 때
+
+로그인·로그아웃 요청도 **위와 같은 API 주소(VITE_API_URL)** 로 나갑니다. "연결이 끊겼습니다"와 같은 원인입니다.
+
+- **폰 브라우저**에서 `http://PC_IP:3001/api/health` 가 열리면 → 백엔드·DB·방화벽은 정상. **앱을 현재 PC IP로 다시 빌드**한 뒤 `npx cap sync` → 앱 재설치 후 로그인 시도.
+- **health도 안 열리면** → PC 백엔드 실행 여부, 같은 Wi‑Fi, 방화벽 3001 포트, PC IP 확인.
+
+DB 문제(로그인 불가의 원인)인지 확인하려면: PC 브라우저에서 `http://localhost:3001/api/health` 를 열어 `{"ok":true,"db":"connected"}` 인지 봅니다. 여기서 `db` 가 `"error"` 이면 DB 연결 문제입니다.
+
+### 모바일에서 connection refused / 흰 화면
+
+- **"[vite] page reload ... intermediates/assets/..."** 가 보이면  
+  앱이 **개발 서버(localhost)** 를 바라보고 있을 수 있습니다. 모바일 앱은 **반드시 빌드된 파일**만 쓰세요.  
+  **`npm run dev` 는 브라우저용**이고, 폰에서는 **`npm run build`(또는 `build:device`) → `npx cap sync` → `npx cap run android`** 만 사용하세요.  
+  `capacitor.config.ts` 에 **server.url** 이 있으면 제거해 두세요(원격 라이브 리로드용이라 실기기에서 localhost 접속 시 connection refused 발생).
+
+- **ERR_CONNECTION_REFUSED** 또는 **ERR_UNKNOWN_URL_SCHEME** 이 나오면  
+  1. `capacitor.config.ts` 에 **server.url 이 없고**, **androidScheme: 'https'** 인지 확인.  
+  2. **클린 빌드** 후 다시 시도:
+     ```bash
+     cd client
+     rmdir /s /q android\app\build
+     npm run build
+     npx cap sync
+     npx cap run android
+     ```
+     (PowerShell이면 `Remove-Item -Recurse -Force android\app\build`)  
+  3. **에뮬레이터에서 확인**: Android Studio에서 **에뮬레이터**를 선택해 Run하면 대부분 정상 로드됨. 에뮬레이터에서는 되는데 **실기기에서만** connection refused 나오면 해당 기기/WebView 조합 이슈일 수 있음.
+
+### 모바일에서 흰 화면만 뜰 때
+
+1. **빌드·동기화 다시 하기**  
+   ```bash
+   cd client
+   npm run build
+   npx cap sync
+   npx cap run android
+   ```
+   (모바일에서 API 쓰려면 `npm run build:device` 후 위와 같이 sync/run)
+
+2. **로딩이 8초 넘게 걸리면**  
+   화면에 "앱을 불러올 수 없습니다"와 [다시 시도] 버튼이 나옵니다. [다시 시도]로 새로고침해 보세요.
+
+3. **Android Studio에서 실행**  
+   터미널 대신 Android Studio에서 `npx cap open android` 후 Run(▶)으로 실행해 보세요. Logcat에서 `chromium` 또는 `WebView` 로그로 JS 오류 여부를 확인할 수 있습니다.
+
+4. **캐시 삭제 후 재설치**  
+   앱 정보 → 저장공간 → 캐시 삭제, 또는 앱 삭제 후 `npx cap run android` 로 다시 설치해 보세요.
 
 ### 상세 가이드
 

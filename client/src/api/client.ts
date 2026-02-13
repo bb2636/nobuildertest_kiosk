@@ -1,10 +1,26 @@
 import { AUTH_STORAGE_KEY_ADMIN, AUTH_STORAGE_KEY_KIOSK, type AuthUser } from '../contexts/AuthContext';
 
-/** 실기기 빌드 시 VITE_API_URL로 API 서버 주소 지정. 없으면 동일 오리진(/api) 사용. */
+const MOBILE_API_URL_KEY = 'kiosk_api_url';
+
+function isCapacitor(): boolean {
+  if (typeof window === 'undefined') return false;
+  const w = window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } };
+  return !!(w.Capacitor?.isNativePlatform?.());
+}
+
+/** 실기기 빌드 시 VITE_API_URL 사용. Capacitor 앱에서는 localStorage(kiosk_api_url) 폴백으로 재빌드 없이 PC IP 변경 가능. */
 function getApiBase(): string {
   const url = import.meta.env.VITE_API_URL;
   if (url && typeof url === 'string') {
-    return url.trim().replace(/\/+$/, '');
+    const t = url.trim().replace(/\/+$/, '');
+    if (t) return t;
+  }
+  if (isCapacitor()) {
+    const stored = localStorage.getItem(MOBILE_API_URL_KEY);
+    if (stored && typeof stored === 'string') {
+      const t = stored.trim().replace(/\/+$/, '');
+      if (t) return t;
+    }
   }
   return '';
 }
@@ -14,11 +30,25 @@ function getApiBaseWithApi(): string {
   return base ? `${base}/api` : '/api';
 }
 
-const API = getApiBaseWithApi();
+/** API 루트 URL (AuthContext 등에서 fetch 시 사용). 요청 시마다 계산해 모바일에서 저장된 URL 반영. */
+export function getApiRoot(): string {
+  return getApiBaseWithApi();
+}
 
-/** API 베이스 URL (이미지 등 절대 경로 변환용). export for resolveApiImageUrl */
+/** 현재 API 베이스(호스트까지). 모바일 연결 설정 UI에서 표시/입력용. */
 export function getApiBaseUrl(): string {
   return getApiBase() || (typeof window !== 'undefined' ? window.location.origin : '');
+}
+
+/** Capacitor 여부. 연결 설정 UI 노출 여부에 사용. */
+export function isCapacitorApp(): boolean {
+  return isCapacitor();
+}
+
+/** 모바일에서 API 주소 저장 후 앱 재시작 시 반영. (저장만 하며, 호출 측에서 reload 권장) */
+export function setMobileApiBaseUrl(url: string): void {
+  const t = url.trim().replace(/\/+$/, '');
+  if (t) localStorage.setItem(MOBILE_API_URL_KEY, t);
 }
 
 type StoredAuth = { accessToken?: string; refreshToken?: string; user?: unknown };
@@ -73,7 +103,8 @@ async function refreshAndSave(): Promise<string | null> {
   const data = getStored();
   const refreshToken = data?.refreshToken;
   if (!refreshToken) return null;
-  const res = await fetch(`${API}/auth/refresh`, {
+  const apiRoot = getApiBaseWithApi();
+  const res = await fetch(`${apiRoot}/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken }),
@@ -91,10 +122,11 @@ async function request<T>(
   options?: RequestInit & { params?: Record<string, string> }
 ): Promise<T> {
   const { params, ...init } = options ?? {};
+  const apiRoot = getApiBaseWithApi();
   const pathNorm = path.startsWith('/') ? path : `/${path}`;
   const url = params
-    ? `${API}${pathNorm}?${new URLSearchParams(params)}`
-    : `${API}${pathNorm}`;
+    ? `${apiRoot}${pathNorm}?${new URLSearchParams(params)}`
+    : `${apiRoot}${pathNorm}`;
   const urlTrimmed = url.trim();
   const headers: HeadersInit = { 'Content-Type': 'application/json', ...init.headers };
   const token = getAuthToken();

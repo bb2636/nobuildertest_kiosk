@@ -498,7 +498,7 @@ export function Checkout() {
           theme="kiosk"
           fullWidth
           onClick={submitOrder}
-          disabled={submitting || (paymentMethod === 'TOSS' && payAmount < 1)}
+          disabled={submitting || (paymentMethod === 'TOSS' && payAmount > 0 && payAmount < 1)}
         >
           {submitting ? t('processing') : t('payButton', { amount: `${payAmount.toLocaleString()}${t('currencyUnit')}`.trim() })}
         </Button>

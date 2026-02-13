@@ -2,16 +2,16 @@
  * [1계층 - 데이터 접근] 메뉴판 API 클라이언트
  * - GET /api/menu-board 호출, 응답 타입 반환
  * - fetch 실패 시 네트워크 배너 노출용 이벤트 디스패치
+ * - getApiRoot() 사용으로 모바일(Capacitor)에서도 VITE_API_URL 기반 요청
  */
 
 import type { MenuBoardCategory } from '../types/menuBoard';
-import { isNetworkError, dispatchNetworkError } from './client';
-
-const API = '/api';
+import { getApiRoot, isNetworkError, dispatchNetworkError } from './client';
 
 async function request<T>(path: string): Promise<T> {
   try {
-    const res = await fetch(`${API}${path}`, {
+    const apiRoot = getApiRoot();
+    const res = await fetch(`${apiRoot}${path}`, {
       headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) {

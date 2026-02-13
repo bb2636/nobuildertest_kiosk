@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
+import { getApiBaseUrl, getApiRoot, isCapacitorApp, setMobileApiBaseUrl } from '../../api/client';
 
 export function Login() {
   const { login } = useAuth();
@@ -12,6 +13,30 @@ export function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [health, setHealth] = useState<'ok' | 'fail' | null>(null);
+  const [mobileUrl, setMobileUrl] = useState('');
+  const isMobile = isCapacitorApp();
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const base = getApiBaseUrl();
+    if (base && base !== window.location.origin) setMobileUrl(base);
+    let cancelled = false;
+    const apiRoot = getApiRoot();
+    if (apiRoot === '/api') {
+      setHealth(null);
+      return;
+    }
+    fetch(`${apiRoot}/health`)
+      .then((res) => res.json().catch(() => ({})))
+      .then((data: { ok?: boolean }) => {
+        if (!cancelled) setHealth(data?.ok ? 'ok' : 'fail');
+      })
+      .catch(() => {
+        if (!cancelled) setHealth('fail');
+      });
+    return () => { cancelled = true; };
+  }, [isMobile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +98,43 @@ export function Login() {
             비밀번호 찾기
           </Link>
         </div>
+
+        {isMobile && (
+          <div className="mt-6 pt-4 border-t border-kiosk-border">
+            <p className="text-xs text-kiosk-textSecondary mb-2">모바일 앱 연결</p>
+            {getApiRoot() === '/api' ? (
+              <p className="text-sm text-amber-700 mb-2">
+                서버 주소가 없습니다. 아래에 PC 주소를 입력하세요. (예: http://10.140.140.147:3001)
+              </p>
+            ) : (
+              <p className="text-sm text-kiosk-textSecondary mb-2 break-all">
+                현재: {getApiBaseUrl()}
+                {health === 'ok' && <span className="text-green-600 ml-1">· 연결됨</span>}
+                {health === 'fail' && <span className="text-red-600 ml-1">· 연결 실패</span>}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={mobileUrl}
+                onChange={(e) => setMobileUrl(e.target.value)}
+                placeholder="http://PC_IP:3001"
+                className="flex-1 min-w-0 px-3 py-2 text-sm border border-kiosk-border rounded-lg bg-white"
+              />
+              <Button
+                type="button"
+                theme="kiosk"
+                className="shrink-0"
+                onClick={() => {
+                  setMobileApiBaseUrl(mobileUrl);
+                  window.location.reload();
+                }}
+              >
+                저장 후 재시작
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );

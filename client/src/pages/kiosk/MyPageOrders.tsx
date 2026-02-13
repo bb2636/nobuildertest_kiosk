@@ -302,6 +302,12 @@ export function MyPageOrders() {
                     {order.paymentStatus === 'PENDING' && order.status !== 'CANCELED' && (
                       <span className="text-amber-600 ml-1">결제 대기</span>
                     )}
+                    {order.status === 'WAITING' && order.paymentStatus !== 'PENDING' && (
+                      <span className="text-kiosk-textSecondary ml-1">주문 확인 중</span>
+                    )}
+                    {order.status === 'PREPARING' && (
+                      <span className="text-amber-600 ml-1">제조중</span>
+                    )}
                     {order.status === 'PICKUP_READY' && (
                       <span className="text-kiosk-primary ml-1">픽업대기</span>
                     )}

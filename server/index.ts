@@ -82,6 +82,15 @@ const paymentsLimiter = rateLimit({
 // Swagger UI (API 테스트용)
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, { customSiteTitle: '키오스크 API' }));
 
+// 루트 접속 시 안내 (모바일에서 주소만 열었을 때 혼동 방지)
+app.get('/', (_req, res) => {
+  res.json({
+    message: '키오스크 API 서버입니다.',
+    health: '/api/health',
+    docs: '/api-docs',
+  });
+});
+
 // 헬스체크 (Neon 연결 확인용)
 app.get('/api/health', async (_req, res) => {
   try {

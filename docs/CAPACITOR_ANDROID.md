@@ -141,6 +141,17 @@ public class MainActivity extends BridgeActivity {
 
 `getBridge().getWebView()`가 null일 수 있으면, `getBridge()`가 준비된 뒤(예: `runOnUiThread` 또는 리스너)에 호출하도록 합니다.
 
+### 3.5 결제(토스 등) – intent 스킴 처리 (ERR_UNKNOWN_URL_SCHEME 방지)
+
+토스페이먼츠 등 결제 시 앱/은행 앱으로 이동하는 `intent://` 또는 `kftc-bankpay://` 등 커스텀 URL을 WebView가 그대로 로드하면 **net:ERR_UNKNOWN_URL_SCHEME** 이 발생합니다.  
+MainActivity에서 `WebViewClient.shouldOverrideUrlLoading`을 오버라이드해, 해당 URL은 시스템 인텐트로 열고 `true`를 반환하도록 되어 있습니다. (이미 적용됨)
+
+- `http(s)://`, `file://`, `capacitor://` 등은 기존 Bridge WebViewClient에 위임.
+- `intent://` → `Intent.parseUri()` 후 `startActivity`.
+- 그 외 커스텀 스킴 → `ACTION_VIEW` 인텐트로 외부 앱 실행.
+
+결제 시 "웹페이지를 사용할 수 없음 / INTENT:PAY? / ERR_UNKNOWN_URL_SCHEME" 이 나왔다면, 위 설정이 적용된 앱으로 다시 빌드·설치하면 됩니다.
+
 ---
 
 ## 4. 이미지 로드 (이미 적용됨)
@@ -189,6 +200,41 @@ public class MainActivity extends BridgeActivity {
 4. **빌드 실패 시**:  
    - **File → Sync Project with Gradle Files**  
    - 위 3.1~3.4 항목(Java 17, Cleartext, network_security_config, MainActivity Mixed Content) 적용 여부 확인
+
+---
+
+## 7. net::ERR_CONNECTION_REFUSED / net::ERR_UNKNOWN_URL_SCHEME
+
+**상황**:
+- **https://localhost** → 일부 실기기에서 `ERR_CONNECTION_REFUSED` (WebView가 실제로 localhost에 접속 시도).
+- **capacitor://localhost** → Android에서 `ERR_UNKNOWN_URL_SCHEME` (Capacitor 6 Android는 이 스킴으로 초기 로드를 지원하지 않음).
+
+**현재 설정**: `androidScheme: 'https'` (Capacitor 6 권장). 정상 기기에서는 앱 번들이 로드됨.
+
+**특정 기기에서만 계속 실패할 때**:
+
+2. **클린 빌드**  
+   - Android 빌드 캐시 삭제 후 다시 sync·실행:
+     ```bash
+     cd client
+     # Windows CMD
+     rmdir /s /q android\app\build
+     # PowerShell
+     # Remove-Item -Recurse -Force android\app\build
+     npm run build
+     npx cap sync
+     npx cap run android
+     ```
+
+3. **앱 삭제 후 재설치**  
+   - 실기기에서 앱 삭제한 뒤, 위 순서로 다시 설치·실행.
+
+4. **에뮬레이터 또는 다른 기기**  
+   - **Android Studio 에뮬레이터**에서는 대부분 정상 동작함. 실기기에서만 나오면 해당 기기/WebView 조합 이슈일 수 있음.
+   - 다른 Android 폰으로 설치해 보기.
+
+5. **Capacitor 업데이트**  
+   - `cd client` → `npm update @capacitor/core @capacitor/cli @capacitor/android` 후 `npx cap sync` · 앱 재빌드.
 
 ---
 
